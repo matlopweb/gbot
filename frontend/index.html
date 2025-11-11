@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    
+    <!-- Mobile Optimization -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="GBot" />
+    
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#6366f1" />
+    
+    <!-- SEO -->
+    <meta name="description" content="GBot - Tu asistente personal inteligente con IA. Control por voz, gestión de tareas, emails y más." />
+    <meta name="keywords" content="asistente virtual, IA, inteligencia artificial, productividad, voz" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="GBot - Asistente Personal IA" />
+    <meta property="og:description" content="Tu asistente personal inteligente con IA" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Security -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:3001 ws://localhost:3001; img-src 'self' data: https:;">
+    
+    <title>GBot - Asistente Personal</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="http://localhost:3001" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Register Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registered'))
+            .catch(err => console.log('Service Worker registration failed'));
+        });
+      }
+    </script>
+  </body>
+</html>
