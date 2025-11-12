@@ -177,10 +177,14 @@ export function useWebSocket() {
         break;
 
       case 'response':
-        addMessage({
-          role: 'assistant',
-          content: data.text
-        });
+        // Evitar respuestas duplicadas consecutivas
+        const lastMessage = useBotStore.getState().messages[useBotStore.getState().messages.length - 1];
+        if (!lastMessage || lastMessage.content !== data.text || lastMessage.role !== 'assistant') {
+          addMessage({
+            role: 'assistant',
+            content: data.text
+          });
+        }
         setCurrentTranscript('');
         break;
 
