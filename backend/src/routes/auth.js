@@ -3,7 +3,8 @@ import { google } from 'googleapis';
 import { logger } from '../utils/logger.js';
 import { getAuthUrl, getTokensFromCode, setCredentials } from '../config/google.js';
 import { generateToken } from '../middleware/auth.js';
-import { getUserTokens, saveUserTokens, deleteUserTokens, encryptToken } from '../utils/tokenStore.js';
+import { getUserTokens, saveUserTokens, deleteUserTokens } from '../utils/tokenStore.js';
+import { encryptToken } from '../utils/encryption.js';
 
 const router = express.Router();
 
