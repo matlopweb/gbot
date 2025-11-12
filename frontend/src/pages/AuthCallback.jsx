@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useBotStore } from '../store/botStore';
+import { fetchConversations } from '../services/conversationsApi';
 import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -8,6 +10,7 @@ export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
+  const hydrateMessages = useBotStore(state => state.hydrateMessages);
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -15,6 +18,9 @@ export default function AuthCallback() {
 
     if (token) {
       setAuth(token, {});
+      fetchConversations(token)
+        .then((messages) => hydrateMessages(messages))
+        .catch((error) => console.error('Error loading conversations:', error));
       navigate('/dashboard', { replace: true });
       return;
     }

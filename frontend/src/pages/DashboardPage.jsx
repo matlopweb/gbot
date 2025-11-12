@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useBotStore } from '../store/botStore';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { fetchConversations } from '../services/conversationsApi';
 import BotFace from '../components/Bot/BotFace';
 import ChatInterface from '../components/Chat/ChatInterface';
 import VoiceControl from '../components/Voice/VoiceControl';
@@ -12,10 +14,12 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
-  const { logout } = useAuthStore();
+  const { logout, token } = useAuthStore();
   const { isConnected } = useWebSocket();
+  const hydrateMessages = useBotStore(state => state.hydrateMessages);
   const [showSettings, setShowSettings] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const hasHydrated = useRef(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -26,6 +30,19 @@ export default function DashboardPage() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    if (token && !hasHydrated.current) {
+      hasHydrated.current = true;
+      fetchConversations(token)
+        .then((serverMessages) => {
+          if (serverMessages.length > 0) {
+            hydrateMessages(serverMessages);
+          }
+        })
+        .catch((error) => console.error('Error syncing conversations:', error));
+    }
+  }, [token, hydrateMessages]);
 
   const handleLogout = () => {
     logout();

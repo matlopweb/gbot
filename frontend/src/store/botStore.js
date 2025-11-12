@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { useAuthStore } from './authStore';
+import { saveConversationMessage } from '../services/conversationsApi';
 
 // Cargar historial del localStorage
 const loadHistory = () => {
@@ -62,18 +64,34 @@ export const useBotStore = create((set) => ({
   setSpeaking: (isSpeaking) => set({ isSpeaking }),
   
   addMessage: (message) => {
+    const payload = {
+      ...message,
+      id: message.id || Date.now(),
+      timestamp: message.timestamp || new Date().toISOString()
+    };
+
     set((state) => {
-      const newMessages = [...state.messages, {
-        ...message,
-        id: Date.now(),
-        timestamp: new Date().toISOString()
-      }];
-      
-      // Guardar en localStorage
+      const newMessages = [...state.messages, payload];
       saveHistory(newMessages);
-      
       return { messages: newMessages };
     });
+
+    const token = useAuthStore.getState().token;
+    if (token) {
+      saveConversationMessage(token, payload).catch((error) => {
+        console.error('Error syncing conversation message:', error);
+      });
+    }
+  },
+
+  hydrateMessages: (messages) => {
+    const normalized = messages.map((message) => ({
+      ...message,
+      id: message.id || Date.now(),
+      timestamp: message.timestamp || new Date().toISOString()
+    }));
+    saveHistory(normalized);
+    set({ messages: normalized });
   },
   
   setCurrentTranscript: (transcript) => set({ currentTranscript: transcript }),
