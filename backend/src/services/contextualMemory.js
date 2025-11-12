@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { memoryService } from './memoryService.js';
 
 /**
  * Sistema de Memoria Contextual con IA
@@ -80,7 +81,36 @@ export class ContextualMemory {
    */
   async loadMemory() {
     try {
-      // TODO: Cargar desde Supabase o archivo local
+      const storedMemory = await memoryService.getContext(this.userId);
+      if (storedMemory && Object.keys(storedMemory).length > 0) {
+        this.memory = {
+          ...this.memory,
+          ...storedMemory,
+          conversationContext: {
+            ...this.memory.conversationContext,
+            ...(storedMemory.conversationContext || {})
+          },
+          interactions: {
+            ...this.memory.interactions,
+            ...(storedMemory.interactions || {})
+          }
+        };
+      }
+
+      const recentConversations = await memoryService.getRecentConversations(this.userId, 5);
+      if (recentConversations.length > 0) {
+        this.memory.conversationContext.recentTopics = recentConversations
+          .map(c => c.messages?.[c.messages.length - 1]?.content)
+          .filter(Boolean)
+          .slice(0, 10);
+      }
+
+      const preferences = await memoryService.getPreferences(this.userId);
+      if (preferences && Object.keys(preferences).length > 0) {
+        this.memory.personal = { ...this.memory.personal, ...(preferences.personal || {}) };
+        this.memory.workPreferences = { ...this.memory.workPreferences, ...(preferences.workPreferences || {}) };
+      }
+
       logger.info(`Memory loaded for user: ${this.userId}`);
     } catch (error) {
       logger.error('Error loading memory:', error);
@@ -92,7 +122,11 @@ export class ContextualMemory {
    */
   async saveMemory() {
     try {
-      // TODO: Guardar en Supabase o archivo local
+      await memoryService.saveContext(this.userId, this.memory);
+      await memoryService.savePreferences(this.userId, {
+        personal: this.memory.personal,
+        workPreferences: this.memory.workPreferences
+      });
       logger.info(`Memory saved for user: ${this.userId}`);
     } catch (error) {
       logger.error('Error saving memory:', error);

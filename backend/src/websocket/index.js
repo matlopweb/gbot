@@ -6,6 +6,7 @@ import { verifyToken } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 import { ProactiveBehavior } from '../services/proactiveBehavior.js';
 import { ContextualMemory } from '../services/contextualMemory.js';
+import { trackWsConnection, trackWsMessage, trackWsError } from '../middleware/metrics.js';
 
 const sessions = new Map();
 
@@ -17,21 +18,23 @@ export function setupWebSocket(wss) {
     // Verificar autenticación
     const token = new URL(req.url, 'http://localhost').searchParams.get('token');
     
-    let userId;
+    let decoded;
     try {
-      const decoded = verifyToken(token);
-      userId = decoded.userId;
+      decoded = verifyToken(token);
     } catch (error) {
       logger.error('WebSocket authentication failed:', error);
       ws.close(1008, 'Authentication failed');
       return;
     }
+    const userId = decoded.userId;
 
     // Crear sesión (no forzar cierre de sesiones previas para evitar reconexiones en loop)
     const session = {
       id: sessionId,
       userId,
       ws,
+      tokenExp: null,
+      jwt: token,
       openaiSession: null,
       stateMachine: new BotStateMachine(),
       lastActivity: Date.now(),
@@ -47,8 +50,10 @@ export function setupWebSocket(wss) {
       conversationHistory: [], // Historial de conversación
       lastGreetingAt: 0
     };
+    bindSessionToken(session, token);
 
     sessions.set(sessionId, session);
+    trackWsConnection(1);
 
     // Inicializar máquina de estados
     session.stateMachine.on('stateChange', (newState) => {
@@ -63,9 +68,11 @@ export function setupWebSocket(wss) {
     ws.on('message', async (data) => {
       try {
         const message = JSON.parse(data.toString());
+        trackWsMessage(message.type || 'unknown');
         await handleClientMessage(session, message);
       } catch (error) {
         logger.error('Error processing message:', error);
+        trackWsError();
         sendToClient(ws, {
           type: 'error',
           message: 'Error processing message',
@@ -89,6 +96,7 @@ export function setupWebSocket(wss) {
         session.proactiveBehavior.stop();
       }
       sessions.delete(sessionId);
+      trackWsConnection(-1);
     });
 
     // Enviar confirmación de conexión
@@ -103,6 +111,20 @@ export function setupWebSocket(wss) {
       startAutonomousBehavior(session);
     }
   });
+
+  const heartbeatInterval = setInterval(() => {
+    wss.clients.forEach((socket) => {
+      if (socket.isAlive === false) {
+        trackWsError();
+        socket.terminate();
+        return;
+      }
+      socket.isAlive = false;
+      socket.ping();
+    });
+  }, 30 * 1000);
+
+  wss.on('close', () => clearInterval(heartbeatInterval));
 
   // Cleanup de sesiones inactivas
   setInterval(() => {
@@ -122,7 +144,40 @@ export function setupWebSocket(wss) {
 async function handleClientMessage(session, message) {
   session.lastActivity = Date.now();
 
+  if (message.type !== 'refresh_token' && isSessionTokenExpired(session)) {
+    sendToClient(session.ws, {
+      type: 'error',
+      message: 'Authentication expired'
+    });
+    session.ws.close(4001, 'Authentication expired');
+    return;
+  }
+
   switch (message.type) {
+    case 'refresh_token':
+      try {
+        if (!message.token) {
+          throw new Error('Token is required');
+        }
+        const decoded = verifyToken(message.token);
+        if (decoded.userId !== session.userId) {
+          throw new Error('Token user mismatch');
+        }
+        session.tokenExp = decoded.exp ? decoded.exp * 1000 : null;
+        session.jwt = message.token;
+        sendToClient(session.ws, {
+          type: 'token_refreshed',
+          expiresAt: session.tokenExp
+        });
+      } catch (error) {
+        trackWsError();
+        sendToClient(session.ws, {
+          type: 'error',
+          message: 'Token refresh failed',
+          error: error.message
+        });
+      }
+      break;
     case 'start_realtime':
       await startRealtimeSession(session, message.config);
       break;
@@ -268,18 +323,15 @@ async function handleTextMessage(session, text) {
         const { CalendarService } = await import('../services/calendarService.js');
         const { TasksService } = await import('../services/tasksService.js');
         const { getUserTokens } = await import('../utils/tokenStore.js');
-        const { decryptToken } = await import('../utils/encryption.js');
+        const { ensureFreshGoogleTokens, decryptGoogleTokens } = await import('../utils/googleTokens.js');
         const { setCredentials } = await import('../config/google.js');
         
         // Obtener tokens del usuario
-        const storedTokens = await getUserTokens(session.userId);
-        
+        let storedTokens = await getUserTokens(session.userId);
+        storedTokens = await ensureFreshGoogleTokens(session.userId, storedTokens);
+
         if (storedTokens) {
-          const tokens = {
-            access_token: decryptToken(storedTokens.access_token),
-            refresh_token: storedTokens.refresh_token ? decryptToken(storedTokens.refresh_token) : null,
-            expiry_date: storedTokens.expiry_date
-          };
+          const tokens = decryptGoogleTokens(storedTokens);
           
           calendarService = new CalendarService(tokens);
           tasksService = new TasksService(tokens);
@@ -325,6 +377,7 @@ async function handleTextMessage(session, text) {
             .single();
           
           if (spotifyTokens) {
+            const { decryptToken } = await import('../utils/encryption.js');
             const accessToken = decryptToken(spotifyTokens.access_token);
             const refreshToken = decryptToken(spotifyTokens.refresh_token);
             
@@ -1834,6 +1887,17 @@ function sendToClient(ws, data) {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
+}
+
+function bindSessionToken(session, token) {
+  const decoded = verifyToken(token);
+  session.tokenExp = decoded?.exp ? decoded.exp * 1000 : null;
+  session.jwt = token;
+  return decoded;
+}
+
+function isSessionTokenExpired(session) {
+  return session.tokenExp ? Date.now() >= session.tokenExp : false;
 }
 
 export { sessions };

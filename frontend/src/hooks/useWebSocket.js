@@ -322,6 +322,15 @@ export function useWebSocket() {
     return () => {};
   }, [token, connect]);
 
+  useEffect(() => {
+    if (token && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      send({
+        type: 'refresh_token',
+        token
+      });
+    }
+  }, [token, send]);
+
   return {
     send,
     connect,

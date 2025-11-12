@@ -11,7 +11,8 @@ import tasksRoutes from './routes/tasks.js';
 import spotifyRoutes from './routes/spotify.js';
 import { setupWebSocket } from './websocket/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import { logger } from './utils/logger.js';
+import { logger, withRequestLogger } from './utils/logger.js';
+import { metricsMiddleware, metricsRouter } from './middleware/metrics.js';
 
 dotenv.config();
 
@@ -30,6 +31,20 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(metricsMiddleware);
+
+app.use((req, res, next) => {
+  const requestLogger = withRequestLogger(req);
+  const start = process.hrtime.bigint();
+  res.on('finish', () => {
+    const durationMs = Number(process.hrtime.bigint() - start) / 1e6;
+    requestLogger.info({
+      statusCode: res.statusCode,
+      durationMs: Number(durationMs.toFixed(2))
+    }, 'HTTP request completed');
+  });
+  next();
+});
 
 // Rate limiting: 100 requests per 15-minute window
 const limiter = rateLimit({
@@ -48,20 +63,26 @@ app.use('/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/spotify', spotifyRoutes);
+app.use('/metrics', metricsRouter);
 
 // WebSocket setup
-setupWebSocket(wss);
+if (process.env.NODE_ENV !== 'test') {
+  setupWebSocket(wss);
+}
 
 // Error handling
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
+const shouldStartServer = process.env.JEST_WORKER_ID === undefined && process.env.NODE_ENV !== 'test';
 
-server.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📡 WebSocket server ready`);
-  logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+if (shouldStartServer) {
+  server.listen(PORT, () => {
+    logger.info({ port: Number(PORT) }, 'HTTP server running');
+    logger.info('WebSocket server ready');
+    logger.info({ env: process.env.NODE_ENV || 'development' }, 'Environment');
+  });
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

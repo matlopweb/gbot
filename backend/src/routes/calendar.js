@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { CalendarService } from '../services/calendarService.js';
 import { getUserTokens } from '../utils/tokenStore.js';
-import { decryptToken } from '../utils/encryption.js';
+import { ensureFreshGoogleTokens, decryptGoogleTokens } from '../utils/googleTokens.js';
 import { logger } from '../utils/logger.js';
 
 const router = express.Router();
@@ -11,7 +11,8 @@ const router = express.Router();
 async function getCalendarService(req, res, next) {
   try {
     const { userId } = req.user;
-    const storedTokens = await getUserTokens(userId);
+    let storedTokens = await getUserTokens(userId);
+    storedTokens = await ensureFreshGoogleTokens(userId, storedTokens);
 
     if (!storedTokens) {
       return res.status(401).json({
@@ -21,11 +22,7 @@ async function getCalendarService(req, res, next) {
     }
 
     // Desencriptar tokens
-    const tokens = {
-      access_token: decryptToken(storedTokens.access_token),
-      refresh_token: storedTokens.refresh_token ? decryptToken(storedTokens.refresh_token) : null,
-      expiry_date: storedTokens.expiry_date
-    };
+    const tokens = decryptGoogleTokens(storedTokens);
 
     req.calendarService = new CalendarService(tokens);
     next();

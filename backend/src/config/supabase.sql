@@ -1,4 +1,4 @@
--- Schema para Supabase (opcional)
+﻿-- Schema para Supabase (opcional)
 -- Ejecuta este SQL en tu proyecto de Supabase si decides usar persistencia
 
 -- Tabla de contextos de usuario
@@ -36,6 +36,22 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 
 -- Índice para preferencias
 CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
+
+-- Tabla de tokens de servicios (Google, Spotify, etc.)
+CREATE TABLE IF NOT EXISTS user_tokens (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  service TEXT NOT NULL,
+  access_token TEXT,
+  refresh_token TEXT,
+  expires_at TIMESTAMP WITH TIME ZONE,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (user_id, service)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_tokens_user_service ON user_tokens(user_id, service);
 
 -- Tabla de embeddings para búsqueda semántica (opcional - requiere extensión pgvector)
 -- Descomenta si quieres usar búsqueda semántica
@@ -95,3 +111,5 @@ CREATE POLICY "Enable all for service role" ON user_preferences
 COMMENT ON TABLE user_contexts IS 'Almacena el contexto de conversación de cada usuario';
 COMMENT ON TABLE conversations IS 'Historial de conversaciones completas';
 COMMENT ON TABLE user_preferences IS 'Preferencias y configuración de cada usuario';
+
+
