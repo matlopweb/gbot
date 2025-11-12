@@ -4,6 +4,9 @@ import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
+const WS_LOCK_KEY = '__GBOT_WS_LOCK__';
+const WS_AUTO_KEY = '__GBOT_WS_AUTO__';
+const WS_GLOBAL_KEY = '__GBOT_WS_INSTANCE__';
 
 export function useWebSocket() {
   const wsRef = useRef(null);
@@ -21,10 +24,31 @@ export function useWebSocket() {
       return;
     }
 
-    // Evitar conectar si ya está OPEN o CONNECTING
+    // Reutilizar instancia global si existe
+    if (typeof window !== 'undefined' && window[WS_GLOBAL_KEY]) {
+      const gws = window[WS_GLOBAL_KEY];
+      if (gws.readyState === WebSocket.OPEN || gws.readyState === WebSocket.CONNECTING) {
+        console.log('Adopting global WebSocket instance');
+        wsRef.current = gws;
+        setWebSocket(gws);
+        setConnected(gws.readyState === WebSocket.OPEN);
+        return;
+      }
+    }
+
+    // Evitar conectar si ya está OPEN o CONNECTING localmente
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
       console.log('WebSocket already connected');
       return;
+    }
+
+    // Evitar conexiones paralelas entre múltiples montajes
+    if (typeof window !== 'undefined') {
+      if (window[WS_LOCK_KEY]) {
+        console.log('WS lock present, skipping connect');
+        return;
+      }
+      window[WS_LOCK_KEY] = true;
     }
 
     // Cooldown anti reconexiones agresivas
@@ -37,6 +61,7 @@ export function useWebSocket() {
 
     try {
       const ws = new WebSocket(`${WS_URL}?token=${token}`);
+      if (typeof window !== 'undefined') window[WS_GLOBAL_KEY] = ws;
 
       ws.onopen = () => {
         console.log('WebSocket connected');
@@ -65,20 +90,21 @@ export function useWebSocket() {
         console.log('WebSocket disconnected');
         setConnected(false);
         setWebSocket(null);
+        if (typeof window !== 'undefined') {
+          window[WS_LOCK_KEY] = false;
+          if (window[WS_GLOBAL_KEY] === ws) {
+            window[WS_GLOBAL_KEY] = null;
+          }
+        }
         
-        // Intentar reconectar
-        if (reconnectAttemptsRef.current < 5) {
+        // Reintentos controlados (máx 3) para recuperar desconexiones eventuales
+        if (typeof window !== 'undefined') window[WS_LOCK_KEY] = false;
+        if (reconnectAttemptsRef.current < 3) {
           reconnectAttemptsRef.current++;
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-          
-          console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`);
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 8000);
+          setTimeout(() => {
             connect();
           }, delay);
-        } else {
-          console.error('Max reconnection attempts reached');
-          // Toast removido - reconexión silenciosa
         }
       };
 
@@ -278,13 +304,16 @@ export function useWebSocket() {
 
   useEffect(() => {
     if (token) {
-      connect();
+      if (typeof window === 'undefined' || !window[WS_AUTO_KEY]) {
+        connect();
+        if (typeof window !== 'undefined') window[WS_AUTO_KEY] = true;
+      } else {
+        console.log('WS auto-connect already performed');
+      }
     }
-
-    return () => {
-      disconnect();
-    };
-  }, [token, connect, disconnect]);
+    // No desconectar en unmount para evitar ciclos de reconexión cuando hay múltiples montajes
+    return () => {};
+  }, [token, connect]);
 
   return {
     send,
