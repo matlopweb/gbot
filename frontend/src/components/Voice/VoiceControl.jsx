@@ -6,8 +6,8 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 export default function VoiceControl() {
-  const { isRecording, setRecording, state } = useBotStore();
-  const { send, isConnected } = useWebSocket();
+  const { isRecording, setRecording, state, setCurrentTranscript } = useBotStore();
+  const { send, isConnected, connect } = useWebSocket();
   const [isMuted, setIsMuted] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -21,9 +21,20 @@ export default function VoiceControl() {
 
   const startRecording = async () => {
     if (!isConnected) {
-      // Toast removido - conexión silenciosa
-      console.warn('Not connected to server');
-      return;
+      console.warn('WS not connected, attempting to connect...');
+      try { connect?.(); } catch {}
+      // Esperar hasta 2s a que conecte
+      const maxWait = 2000;
+      const step = 200;
+      let waited = 0;
+      while (!useBotStore.getState().connected && waited < maxWait) {
+        await new Promise(res => setTimeout(res, step));
+        waited += step;
+      }
+      if (!useBotStore.getState().connected) {
+        console.warn('Still not connected');
+        return;
+      }
     }
 
     try {
@@ -45,7 +56,9 @@ export default function VoiceControl() {
         audioBitsPerSecond: 128000
       });
 
+      // Reiniciar buffers y transcript actual
       audioChunksRef.current = [];
+      setCurrentTranscript('');
 
       mediaRecorderRef.current.ondataavailable = async (event) => {
         if (event.data.size > 0) {
@@ -78,6 +91,8 @@ export default function VoiceControl() {
             send({
               type: 'commit_audio'
             });
+            // Limpiar buffer después de enviar
+            audioChunksRef.current = [];
           };
         }
       };
@@ -144,7 +159,7 @@ export default function VoiceControl() {
       {/* Main Mic Button */}
       <motion.button
         onClick={toggleRecording}
-        disabled={!isConnected || state === 'thinking' || state === 'working'}
+        disabled={(!isConnected && !isRecording) || state === 'working'}
         className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
           isRecording
             ? 'bg-red-500 hover:bg-red-600 animate-pulse'

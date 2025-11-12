@@ -12,7 +12,7 @@ export function useWebSocket() {
   const lastConnectAtRef = useRef(0);
   const lastAssistantRef = useRef({ text: '', ts: 0 });
   
-  const { setWebSocket, setConnected, setState, addMessage, setCurrentTranscript } = useBotStore();
+  const { setWebSocket, setConnected, setState, addMessage, setCurrentTranscript, connected } = useBotStore();
   const { token } = useAuthStore();
 
   const connect = useCallback(() => {
@@ -290,6 +290,6 @@ export function useWebSocket() {
     send,
     connect,
     disconnect,
-    isConnected: wsRef.current?.readyState === WebSocket.OPEN
+    isConnected: connected
   };
 }
