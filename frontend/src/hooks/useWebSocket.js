@@ -132,7 +132,12 @@ export function useWebSocket() {
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
+        // Si se está grabando, baja volumen para evitar feedback
+        const { isRecording } = useBotStore.getState();
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = isRecording ? 0.2 : 1.0;
+        source.connect(gainNode);
+        gainNode.connect(audioContext.destination);
         
         source.onended = () => {
           console.log('Audio finished playing');
@@ -222,6 +227,15 @@ export function useWebSocket() {
 
       case 'error':
         toast.error(data.message);
+        break;
+
+      case 'notice':
+        if (data?.message) {
+          toast((t) => (
+            // Mensaje discreto, sin agregar al chat
+            `${data.message}`
+          ), { icon: 'ℹ️' });
+        }
         break;
 
       case 'proactive_message':
