@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useBotStore } from '../store/botStore';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -244,6 +244,8 @@ export function useWebSocket() {
         break;
 
       case 'response': {
+        console.info('📨 Received response:', data.text);
+        
         // Evitar duplicados consecutivos y similares en ventana corta
         const lastMessage = useBotStore.getState().messages[useBotStore.getState().messages.length - 1];
         const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -252,12 +254,23 @@ export function useWebSocket() {
         const withinWindow = Date.now() - lastAssistantRef.current.ts < 5000;
         const verySimilar = incoming && prevAssistant && (incoming === prevAssistant || incoming.includes(prevAssistant) || prevAssistant.includes(incoming));
 
+        console.info('🔍 Dedup check:', {
+          lastMessage: lastMessage?.content,
+          withinWindow,
+          verySimilar,
+          incoming: incoming.substring(0, 50),
+          prevAssistant: prevAssistant.substring(0, 50)
+        });
+
         if (
           (!lastMessage || lastMessage.content !== data.text || lastMessage.role !== 'assistant') &&
           !(withinWindow && verySimilar)
         ) {
+          console.info('✅ Adding response message to chat');
           addMessage({ role: 'assistant', content: data.text });
           lastAssistantRef.current = { text: data.text, ts: Date.now() };
+        } else {
+          console.info('❌ Response blocked by deduplication logic');
         }
         setCurrentTranscript('');
         break;
