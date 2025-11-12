@@ -3,7 +3,6 @@ import { useBotStore } from '../../store/botStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
 
 export default function VoiceControl() {
   const { isRecording, setRecording, state, setCurrentTranscript } = useBotStore();
@@ -22,16 +21,20 @@ export default function VoiceControl() {
   const startRecording = async () => {
     if (!isConnected) {
       console.warn('WS not connected, attempting to connect...');
-      try { connect?.(); } catch {}
+      try {
+        connect?.();
+      } catch (error) {
+        console.error('Error intentando reconectar WebSocket:', error);
+      }
       // Esperar hasta 2s a que conecte
       const maxWait = 2000;
       const step = 200;
       let waited = 0;
-      while (!useBotStore.getState().connected && waited < maxWait) {
+      while (!useBotStore.getState().isConnected && waited < maxWait) {
         await new Promise(res => setTimeout(res, step));
         waited += step;
       }
-      if (!useBotStore.getState().connected) {
+      if (!useBotStore.getState().isConnected) {
         console.warn('Still not connected');
         return;
       }
@@ -72,14 +75,14 @@ export default function VoiceControl() {
           // Combinar todos los chunks en un solo blob
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           
-          console.log('Audio blob size:', audioBlob.size, 'bytes');
+          console.info('Audio blob size:', audioBlob.size, 'bytes');
           
           // Convertir a base64
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = () => {
             const base64Audio = reader.result.split(',')[1];
-            console.log('Sending audio, base64 length:', base64Audio.length);
+            console.info('Sending audio, base64 length:', base64Audio.length);
             
             send({
               type: 'audio_chunk',

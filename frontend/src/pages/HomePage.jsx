@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Bot, Calendar, CheckSquare, Mic, Sparkles } from 'lucide-react';
@@ -11,6 +12,12 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleLogin = async () => {
     try {
       const { data } = await axios.get(`${API_URL}/auth/google`);
@@ -22,7 +29,6 @@ export default function HomePage() {
   };
 
   if (isAuthenticated) {
-    navigate('/dashboard');
     return null;
   }
 

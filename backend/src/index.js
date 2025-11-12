@@ -18,20 +18,23 @@ dotenv.config();
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
+  : ['http://localhost:3000'];
 
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
+// Rate limiting: 100 requests per 15-minute window
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100 // límite de 100 requests por ventana
+  windowMs: 15 * 60 * 1000,
+  max: 100
 });
 app.use('/api/', limiter);
 
@@ -55,9 +58,9 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📡 WebSocket server ready`);
-  logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(HTTP server running on port );
+  logger.info('WebSocket server ready');
+  logger.info(Environment: );
 });
 
 // Graceful shutdown
@@ -69,3 +72,4 @@ process.on('SIGTERM', () => {
 });
 
 export default app;
+

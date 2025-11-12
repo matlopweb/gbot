@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+﻿import { useEffect, useRef, useCallback } from 'react';
 import { useBotStore } from '../store/botStore';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -15,8 +15,14 @@ export function useWebSocket() {
   const lastConnectAtRef = useRef(0);
   const lastAssistantRef = useRef({ text: '', ts: 0 });
   
-  const { setWebSocket, setConnected, setState, addMessage, setCurrentTranscript, connected } = useBotStore();
+  const { setWebSocket, setConnected, setState, addMessage, setCurrentTranscript, isConnected } = useBotStore();
   const { token } = useAuthStore();
+
+  const releaseLock = () => {
+    if (typeof window !== 'undefined') {
+      window[WS_LOCK_KEY] = false;
+    }
+  };
 
   const connect = useCallback(() => {
     if (!token) {
@@ -28,7 +34,7 @@ export function useWebSocket() {
     if (typeof window !== 'undefined' && window[WS_GLOBAL_KEY]) {
       const gws = window[WS_GLOBAL_KEY];
       if (gws.readyState === WebSocket.OPEN || gws.readyState === WebSocket.CONNECTING) {
-        console.log('Adopting global WebSocket instance');
+        console.info('Adopting global WebSocket instance');
         wsRef.current = gws;
         setWebSocket(gws);
         setConnected(gws.readyState === WebSocket.OPEN);
@@ -38,14 +44,14 @@ export function useWebSocket() {
 
     // Evitar conectar si ya está OPEN o CONNECTING localmente
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-      console.log('WebSocket already connected');
+      console.info('WebSocket already connected');
       return;
     }
 
     // Evitar conexiones paralelas entre múltiples montajes
     if (typeof window !== 'undefined') {
       if (window[WS_LOCK_KEY]) {
-        console.log('WS lock present, skipping connect');
+        console.info('WS lock present, skipping connect');
         return;
       }
       window[WS_LOCK_KEY] = true;
@@ -55,7 +61,8 @@ export function useWebSocket() {
     const now = Date.now();
     const cooldown = 3000;
     if (now - lastConnectAtRef.current < cooldown) {
-      console.log('Skipping connect due to cooldown');
+      console.info('Skipping connect due to cooldown');
+      releaseLock();
       return;
     }
 
@@ -64,11 +71,12 @@ export function useWebSocket() {
       if (typeof window !== 'undefined') window[WS_GLOBAL_KEY] = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.info('WebSocket connected');
         setConnected(true);
         setWebSocket(ws);
         reconnectAttemptsRef.current = 0;
         lastConnectAtRef.current = Date.now();
+        releaseLock();
         // Toast removido - conexión silenciosa
       };
 
@@ -83,26 +91,27 @@ export function useWebSocket() {
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        releaseLock();
         // Toast removido - error silencioso
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        console.info('WebSocket disconnected');
         setConnected(false);
         setWebSocket(null);
-        if (typeof window !== 'undefined') {
-          window[WS_LOCK_KEY] = false;
-          if (window[WS_GLOBAL_KEY] === ws) {
-            window[WS_GLOBAL_KEY] = null;
-          }
+        if (typeof window !== 'undefined' && window[WS_GLOBAL_KEY] === ws) {
+          window[WS_GLOBAL_KEY] = null;
         }
+        releaseLock();
         
         // Reintentos controlados (máx 3) para recuperar desconexiones eventuales
-        if (typeof window !== 'undefined') window[WS_LOCK_KEY] = false;
         if (reconnectAttemptsRef.current < 3) {
           reconnectAttemptsRef.current++;
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 8000);
-          setTimeout(() => {
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+          reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, delay);
         }
@@ -113,7 +122,7 @@ export function useWebSocket() {
       console.error('Error creating WebSocket:', error);
       // Toast removido - error silencioso
     }
-  }, [token, setConnected, setWebSocket]);
+  }, [token, setConnected, setWebSocket, releaseLock]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -137,7 +146,7 @@ export function useWebSocket() {
     }
   }, []);
 
-  const playAudio = useCallback(async (base64Audio, format) => {
+  const playAudio = useCallback(async (base64Audio) => {
     try {
       // Activar estado de speaking
       const { setSpeaking } = useBotStore.getState();
@@ -166,13 +175,13 @@ export function useWebSocket() {
         gainNode.connect(audioContext.destination);
         
         source.onended = () => {
-          console.log('Audio finished playing');
+          console.info('Audio finished playing');
           setSpeaking(false);
           audioContext.close();
         };
         
         source.start(0);
-        console.log('Audio started playing via Web Audio API');
+        console.info('Audio started playing via Web Audio API');
         
       } catch (decodeError) {
         console.error('Error decoding audio:', decodeError);
@@ -191,7 +200,7 @@ export function useWebSocket() {
   const handleMessage = (data) => {
     switch (data.type) {
       case 'connected':
-        console.log('Session established:', data.sessionId);
+        console.info('Session established:', data.sessionId);
         break;
 
       case 'state_change':
@@ -216,10 +225,10 @@ export function useWebSocket() {
 
       case 'processing':
         // El bot está procesando el mensaje
-        console.log('Processing:', data.text);
+        console.info('Processing:', data.text);
         break;
 
-      case 'response':
+      case 'response': {
         // Evitar duplicados consecutivos y similares en ventana corta
         const lastMessage = useBotStore.getState().messages[useBotStore.getState().messages.length - 1];
         const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -237,10 +246,11 @@ export function useWebSocket() {
         }
         setCurrentTranscript('');
         break;
+      }
 
       case 'audio_response':
         // Reproducir audio del bot
-        playAudio(data.audio, data.format);
+        playAudio(data.audio);
         break;
 
       case 'function_call':
@@ -257,10 +267,7 @@ export function useWebSocket() {
 
       case 'notice':
         if (data?.message) {
-          toast((t) => (
-            // Mensaje discreto, sin agregar al chat
-            `${data.message}`
-          ), { icon: 'ℹ️' });
+          toast(data.message, { icon: 'i' });
         }
         break;
 
@@ -298,7 +305,7 @@ export function useWebSocket() {
         break;
 
       default:
-        console.log('Unhandled message type:', data.type);
+        console.info('Unhandled message type:', data.type);
     }
   };
 
@@ -308,7 +315,7 @@ export function useWebSocket() {
         connect();
         if (typeof window !== 'undefined') window[WS_AUTO_KEY] = true;
       } else {
-        console.log('WS auto-connect already performed');
+        console.info('WS auto-connect already performed');
       }
     }
     // No desconectar en unmount para evitar ciclos de reconexión cuando hay múltiples montajes
@@ -319,6 +326,11 @@ export function useWebSocket() {
     send,
     connect,
     disconnect,
-    isConnected: connected
+    isConnected
   };
 }
+
+
+
+
+

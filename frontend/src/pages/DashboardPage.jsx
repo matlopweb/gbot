@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useWebSocket } from '../hooks/useWebSocket';
-import BotAvatar from '../components/Bot/BotAvatar';
 import BotFace from '../components/Bot/BotFace';
 import ChatInterface from '../components/Chat/ChatInterface';
 import VoiceControl from '../components/Voice/VoiceControl';
@@ -18,38 +17,42 @@ export default function DashboardPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Detectar si es móvil
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const handleLogout = () => {
     logout();
-    toast.success('Sesión cerrada');
+    toast.success('Sesion cerrada');
     window.location.href = '/';
   };
 
-  // Si es móvil, usar layout móvil
   if (isMobile) {
     return <MobileLayout />;
   }
 
-  // Layout desktop
   return (
     <div className="min-h-screen p-4">
-      {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex justify-between items-center glass rounded-2xl p-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold">🤖 GBot</h1>
-            <span className="text-sm text-white/60">Tu asistente personal</span>
+            <div>
+              <h1 className="text-xl font-bold">GBot</h1>
+              <span className="text-sm text-white/60">Tu asistente personal</span>
+            </div>
+            <span
+              className={`text-xs px-3 py-1 rounded-full border ${
+                isConnected ? 'text-emerald-300 border-emerald-400/60' : 'text-amber-200 border-amber-400/40'
+              }`}
+            >
+              {isConnected ? 'Conectado' : 'Sin conexion'}
+            </span>
           </div>
 
           <div className="flex gap-2">
@@ -59,7 +62,7 @@ export default function DashboardPage() {
             >
               <Settings size={20} />
             </button>
-            
+
             <button
               onClick={handleLogout}
               className="p-2 glass rounded-lg hover:bg-white/20 transition-all"
@@ -70,9 +73,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-6">
-        {/* Widgets Sidebar - Izquierda */}
         <motion.div
           className="lg:col-span-3 hidden lg:block"
           initial={{ opacity: 0, x: -20 }}
@@ -82,7 +83,6 @@ export default function DashboardPage() {
           <InfoWidgets />
         </motion.div>
 
-        {/* Bot Avatar Section */}
         <motion.div
           className="lg:col-span-3"
           initial={{ opacity: 0, y: 20 }}
@@ -90,20 +90,18 @@ export default function DashboardPage() {
           transition={{ duration: 0.5, delay: 0.1 }}
         >
           <div className="card h-full flex flex-col items-center justify-center p-8">
-            {/* Bot Section */}
             <div className="flex flex-col items-center gap-8">
               <BotFace />
               <VoiceControl />
             </div>
 
             <div className="mt-6 text-center text-sm text-gray-400">
-              <p>Haz clic en el micrófono para hablar</p>
+              <p>Haz clic en el microfono para hablar</p>
               <p>o escribe en el chat</p>
             </div>
           </div>
         </motion.div>
 
-        {/* Chat Interface */}
         <motion.div
           className="lg:col-span-6"
           initial={{ opacity: 0, x: 20 }}
@@ -114,8 +112,8 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
-      {/* Historial de Conversación (Flotante) */}
       <ConversationHistory />
     </div>
   );
 }
+

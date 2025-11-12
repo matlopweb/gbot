@@ -45,7 +45,10 @@ Agrega a `backend/.env`:
 SPOTIFY_CLIENT_ID=tu-client-id-aqui
 SPOTIFY_CLIENT_SECRET=tu-client-secret-aqui
 SPOTIFY_REDIRECT_URI=http://localhost:3001/api/spotify/callback
+SPOTIFY_STATE_SECRET=una-cadena-larga-y-aleatoria
 ```
+
+> `SPOTIFY_STATE_SECRET` se usa para firmar el parámetro `state` y evitar que terceros inyecten callbacks maliciosos. Una cadena de al menos 32 caracteres es suficiente.
 
 ### **Paso 3: Conectar Cuenta**
 

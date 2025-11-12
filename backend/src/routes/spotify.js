@@ -1,92 +1,134 @@
+import crypto from 'crypto';
 import express from 'express';
 import { SpotifyService } from '../services/spotifyService.js';
 import { logger } from '../utils/logger.js';
-import { encryptToken, decryptToken } from '../utils/encryption.js';
+import { encryptToken } from '../utils/encryption.js';
 import { supabase } from '../config/supabase.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const STATE_SECRET = process.env.SPOTIFY_STATE_SECRET || process.env.JWT_SECRET || 'spotify-state-secret';
 
-/**
- * Inicia el flujo de autenticación de Spotify
- */
-router.get('/auth', (req, res) => {
+function buildState(payload) {
+  const json = JSON.stringify(payload);
+  const signature = crypto.createHmac('sha256', STATE_SECRET).update(json).digest('hex');
+  const encoded = Buffer.from(json).toString('base64url');
+  return `${encoded}.${signature}`;
+}
+
+function parseState(state) {
+  if (!state || !state.includes('.')) {
+    throw new Error('Invalid state payload');
+  }
+  const [encoded, signature] = state.split('.');
+  const json = Buffer.from(encoded, 'base64url').toString('utf8');
+  const expected = crypto.createHmac('sha256', STATE_SECRET).update(json).digest('hex');
+  const providedBuffer = Buffer.from(signature, 'hex');
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  if (providedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(providedBuffer, expectedBuffer)) {
+    throw new Error('Invalid state signature');
+  }
+  return JSON.parse(json);
+}
+
+function ensureSupabaseConfigured(res, redirectOnError = false) {
+  if (!supabase) {
+    if (redirectOnError) {
+      res.redirect(`${FRONTEND_URL}?spotify_error=service_unavailable`);
+    } else {
+      res.status(503).json({
+        success: false,
+        message: 'Supabase is not configured. Spotify features are disabled.'
+      });
+    }
+    return false;
+  }
+  return true;
+}
+
+router.get('/auth', authenticate, (req, res) => {
+  if (!ensureSupabaseConfigured(res)) {
+    return;
+  }
+
   const spotifyService = new SpotifyService();
-  const authUrl = spotifyService.getAuthUrl();
+  const state = buildState({
+    userId: req.user.userId,
+    nonce: crypto.randomBytes(8).toString('hex'),
+    ts: Date.now()
+  });
+
+  const authUrl = spotifyService.getAuthUrl(state);
   res.redirect(authUrl);
 });
 
-/**
- * Callback de autenticación de Spotify
- */
 router.get('/callback', async (req, res) => {
-  const { code, error } = req.query;
+  const { code, error, state } = req.query;
 
   if (error) {
     logger.error('Spotify auth error:', error);
-    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}?spotify_error=${error}`);
+    return res.redirect(`${FRONTEND_URL}?spotify_error=${encodeURIComponent(error)}`);
   }
 
   if (!code) {
-    return res.status(400).json({ error: 'No authorization code provided' });
+    return res.status(400).json({ success: false, error: 'No authorization code provided' });
+  }
+
+  if (!ensureSupabaseConfigured(res, true)) {
+    return;
+  }
+
+  let statePayload;
+  try {
+    statePayload = parseState(state);
+  } catch (stateError) {
+    logger.error('Invalid Spotify state:', stateError);
+    return res.redirect(`${FRONTEND_URL}?spotify_error=invalid_state`);
   }
 
   try {
     const spotifyService = new SpotifyService();
     const tokens = await spotifyService.exchangeCodeForTokens(code);
 
-    // Obtener userId del estado de sesión (deberías pasarlo en el state parameter)
-    const userId = req.session?.userId || req.query.state;
-
-    if (!userId) {
-      throw new Error('No user ID found');
-    }
-
-    // Encriptar tokens
     const encryptedAccessToken = encryptToken(tokens.accessToken);
-    const encryptedRefreshToken = encryptToken(tokens.refreshToken);
+    const encryptedRefreshToken = tokens.refreshToken ? encryptToken(tokens.refreshToken) : null;
 
-    // Guardar tokens en Supabase
+    const upsertPayload = {
+      user_id: statePayload.userId,
+      service: 'spotify',
+      access_token: encryptedAccessToken,
+      refresh_token: encryptedRefreshToken,
+      expires_at: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { error: dbError } = await supabase
       .from('user_tokens')
-      .upsert({
-        user_id: userId,
-        service: 'spotify',
-        access_token: encryptedAccessToken,
-        refresh_token: encryptedRefreshToken,
-        expires_at: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
-        updated_at: new Date().toISOString()
-      });
+      .upsert(upsertPayload);
 
     if (dbError) {
       throw dbError;
     }
 
-    logger.info('Spotify tokens saved successfully for user:', userId);
-
-    // Redirigir al frontend con éxito
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}?spotify_connected=true`);
-
-  } catch (error) {
-    logger.error('Error in Spotify callback:', error);
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}?spotify_error=auth_failed`);
+    logger.info(`Spotify tokens saved successfully for user ${statePayload.userId}`);
+    res.redirect(`${FRONTEND_URL}?spotify_connected=true`);
+  } catch (callbackError) {
+    logger.error('Error in Spotify callback:', callbackError);
+    res.redirect(`${FRONTEND_URL}?spotify_error=auth_failed`);
   }
 });
 
-/**
- * Verifica el estado de conexión de Spotify
- */
-router.get('/status', async (req, res) => {
+router.get('/status', authenticate, async (req, res) => {
   try {
-    const userId = req.session?.userId;
-
-    if (!userId) {
-      return res.json({ connected: false });
+    if (!ensureSupabaseConfigured(res)) {
+      return;
     }
 
     const { data, error } = await supabase
       .from('user_tokens')
-      .select('access_token, refresh_token')
-      .eq('user_id', userId)
+      .select('access_token')
+      .eq('user_id', req.user.userId)
       .eq('service', 'spotify')
       .single();
 
@@ -95,28 +137,22 @@ router.get('/status', async (req, res) => {
     }
 
     res.json({ connected: true });
-
-  } catch (error) {
-    logger.error('Error checking Spotify status:', error);
+  } catch (statusError) {
+    logger.error('Error checking Spotify status:', statusError);
     res.json({ connected: false });
   }
 });
 
-/**
- * Desconecta Spotify
- */
-router.post('/disconnect', async (req, res) => {
+router.post('/disconnect', authenticate, async (req, res) => {
   try {
-    const userId = req.session?.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    if (!ensureSupabaseConfigured(res)) {
+      return;
     }
 
     const { error } = await supabase
       .from('user_tokens')
       .delete()
-      .eq('user_id', userId)
+      .eq('user_id', req.user.userId)
       .eq('service', 'spotify');
 
     if (error) {
@@ -124,11 +160,11 @@ router.post('/disconnect', async (req, res) => {
     }
 
     res.json({ success: true, message: 'Spotify disconnected' });
-
-  } catch (error) {
-    logger.error('Error disconnecting Spotify:', error);
-    res.status(500).json({ error: 'Failed to disconnect Spotify' });
+  } catch (disconnectError) {
+    logger.error('Error disconnecting Spotify:', disconnectError);
+    res.status(500).json({ success: false, error: 'Failed to disconnect Spotify' });
   }
 });
 
 export default router;
+

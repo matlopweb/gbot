@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, MessageCircle, Mic, Settings, History } from 'lucide-react';
+import { Menu, X, MessageCircle, Mic, Settings } from 'lucide-react';
 import BotFace from '../Bot/BotFace';
 import ChatInterface from '../Chat/ChatInterface';
 import VoiceControl from '../Voice/VoiceControl';
@@ -9,16 +9,25 @@ import { ConversationHistory } from '../History/ConversationHistory';
 import { useBotStore } from '../../store/botStore';
 
 export function MobileLayout() {
-  const [activeTab, setActiveTab] = useState('voice'); // Iniciar en modo voz
+  const [activeTab, setActiveTab] = useState('voice');
   const [showMenu, setShowMenu] = useState(false);
   const { isConnected, messages } = useBotStore();
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      {/* Header Móvil */}
+      {/* Header */}
       <header className="bg-black/20 backdrop-blur-lg border-b border-white/10 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <h1 className="text-white font-bold text-lg">🤖 GBot</h1>
+          <h1 className="text-white font-bold text-lg">GBot</h1>
+          <span
+            className={`text-xs px-2 py-1 rounded-full border ${
+              isConnected
+                ? 'text-emerald-300 border-emerald-400/60'
+                : 'text-amber-200 border-amber-400/50'
+            }`}
+          >
+            {isConnected ? 'Conectado' : 'Reconectando'}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -31,7 +40,7 @@ export function MobileLayout() {
         </div>
       </header>
 
-      {/* Menú Desplegable */}
+      {/* Menu desplegable */}
       <AnimatePresence>
         {showMenu && (
           <motion.div
@@ -49,7 +58,7 @@ export function MobileLayout() {
         )}
       </AnimatePresence>
 
-      {/* Contenido Principal */}
+      {/* Contenido principal */}
       <main className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           {activeTab === 'chat' && (
@@ -76,9 +85,9 @@ export function MobileLayout() {
                 <BotFace />
                 <VoiceControl />
                 <div className="text-center text-white/80 text-sm">
-                  <p>Toca el micrófono para hablar</p>
+                  <p>Toca el microfono para hablar</p>
                   <p className="text-xs mt-2 text-white/60">
-                    {messages.length} mensajes en esta conversación
+                    {messages.length} mensajes en esta conversacion
                   </p>
                 </div>
               </div>
@@ -99,7 +108,7 @@ export function MobileLayout() {
         </AnimatePresence>
       </main>
 
-      {/* Bottom Navigation */}
+      {/* Navegacion inferior */}
       <nav className="bg-black/30 backdrop-blur-lg border-t border-white/10 px-4 py-2 safe-area-bottom">
         <div className="flex items-center justify-around">
           <NavButton
@@ -123,7 +132,6 @@ export function MobileLayout() {
         </div>
       </nav>
 
-      {/* Historial (siempre disponible) */}
       <ConversationHistory />
     </div>
   );
@@ -134,8 +142,8 @@ function NavButton({ icon, label, active, onClick }) {
     <button
       onClick={onClick}
       className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all ${
-        active 
-          ? 'text-white bg-white/20' 
+        active
+          ? 'text-white bg-white/20'
           : 'text-white/60 hover:text-white hover:bg-white/10'
       }`}
     >
@@ -156,3 +164,4 @@ function MenuButton({ icon, label, onClick }) {
     </button>
   );
 }
+

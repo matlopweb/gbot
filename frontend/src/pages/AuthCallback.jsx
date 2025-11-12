@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
@@ -10,14 +11,19 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const token = searchParams.get('token');
+    const authError = searchParams.get('error');
 
     if (token) {
-      // Guardar el token directamente sin decodificar para evitar incompatibilidades de base64url
       setAuth(token, {});
-      navigate('/dashboard');
-    } else {
-      navigate('/');
+      navigate('/dashboard', { replace: true });
+      return;
     }
+
+    if (authError) {
+      toast.error('No se pudo completar la autenticación con Google');
+    }
+
+    navigate('/', { replace: true });
   }, [searchParams, setAuth, navigate]);
 
   return (

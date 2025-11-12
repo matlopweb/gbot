@@ -3,13 +3,42 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-export const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
+const clientConfig = {
+  clientId: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  redirectUri: process.env.GOOGLE_REDIRECT_URI
+};
 
-// Scopes necesarios para Calendar, Tasks y Gmail
+function assertGoogleConfig() {
+  if (!clientConfig.clientId || !clientConfig.clientSecret || !clientConfig.redirectUri) {
+    throw new Error('Google OAuth configuration is incomplete. Check GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI.');
+  }
+}
+
+export function createOAuthClient(tokens) {
+  assertGoogleConfig();
+  const client = new google.auth.OAuth2(
+    clientConfig.clientId,
+    clientConfig.clientSecret,
+    clientConfig.redirectUri
+  );
+
+  if (tokens) {
+    client.setCredentials(tokens);
+  }
+
+  return client;
+}
+
+let sharedClient = null;
+
+function getSharedClient() {
+  if (!sharedClient) {
+    sharedClient = createOAuthClient();
+  }
+  return sharedClient;
+}
+
 export const SCOPES = [
   'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/tasks',
@@ -20,35 +49,28 @@ export const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email'
 ];
 
-// Generar URL de autorización
 export function getAuthUrl() {
-  return oauth2Client.generateAuthUrl({
+  return getSharedClient().generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
     prompt: 'consent'
   });
 }
 
-// Obtener tokens desde el código de autorización
 export async function getTokensFromCode(code) {
-  const { tokens } = await oauth2Client.getToken(code);
+  const client = createOAuthClient();
+  const { tokens } = await client.getToken(code);
   return tokens;
 }
 
-// Configurar credenciales
 export function setCredentials(tokens) {
-  oauth2Client.setCredentials(tokens);
-  return oauth2Client;
+  return createOAuthClient(tokens);
 }
 
-// Refrescar token
 export async function refreshAccessToken(refreshToken) {
-  oauth2Client.setCredentials({
-    refresh_token: refreshToken
-  });
-  
-  const { credentials } = await oauth2Client.refreshAccessToken();
+  const client = createOAuthClient({ refresh_token: refreshToken });
+  const { credentials } = await client.refreshAccessToken();
   return credentials;
 }
 
-export default oauth2Client;
+export default getSharedClient();

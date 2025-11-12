@@ -17,7 +17,7 @@ export class SpotifyService {
   /**
    * Obtiene la URL de autorización de Spotify
    */
-  getAuthUrl() {
+  getAuthUrl(state) {
     const scopes = [
       'user-read-playback-state',
       'user-modify-playback-state',
@@ -34,6 +34,10 @@ export class SpotifyService {
       redirect_uri: this.redirectUri,
       scope: scopes
     });
+
+    if (state) {
+      params.set('state', state);
+    }
 
     return `https://accounts.spotify.com/authorize?${params.toString()}`;
   }

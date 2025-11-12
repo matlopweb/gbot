@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 // Cargar historial del localStorage
 const loadHistory = () => {
@@ -23,7 +22,7 @@ const saveHistory = (messages) => {
   }
 };
 
-export const useBotStore = create((set, get) => ({
+export const useBotStore = create((set) => ({
   // Estado del bot
   state: 'idle', // idle, listening, thinking, speaking, working
   
