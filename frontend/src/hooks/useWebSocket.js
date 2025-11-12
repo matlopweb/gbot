@@ -9,6 +9,8 @@ export function useWebSocket() {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
+  const lastConnectAtRef = useRef(0);
+  const lastAssistantRef = useRef({ text: '', ts: 0 });
   
   const { setWebSocket, setConnected, setState, addMessage, setCurrentTranscript } = useBotStore();
   const { token } = useAuthStore();
@@ -19,8 +21,17 @@ export function useWebSocket() {
       return;
     }
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    // Evitar conectar si ya está OPEN o CONNECTING
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
       console.log('WebSocket already connected');
+      return;
+    }
+
+    // Cooldown anti reconexiones agresivas
+    const now = Date.now();
+    const cooldown = 3000;
+    if (now - lastConnectAtRef.current < cooldown) {
+      console.log('Skipping connect due to cooldown');
       return;
     }
 
@@ -32,6 +43,7 @@ export function useWebSocket() {
         setConnected(true);
         setWebSocket(ws);
         reconnectAttemptsRef.current = 0;
+        lastConnectAtRef.current = Date.now();
         // Toast removido - conexión silenciosa
       };
 
@@ -177,13 +189,20 @@ export function useWebSocket() {
         break;
 
       case 'response':
-        // Evitar respuestas duplicadas consecutivas
+        // Evitar duplicados consecutivos y similares en ventana corta
         const lastMessage = useBotStore.getState().messages[useBotStore.getState().messages.length - 1];
-        if (!lastMessage || lastMessage.content !== data.text || lastMessage.role !== 'assistant') {
-          addMessage({
-            role: 'assistant',
-            content: data.text
-          });
+        const normalize = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const incoming = normalize(data.text);
+        const prevAssistant = normalize(lastAssistantRef.current.text);
+        const withinWindow = Date.now() - lastAssistantRef.current.ts < 5000;
+        const verySimilar = incoming && prevAssistant && (incoming === prevAssistant || incoming.includes(prevAssistant) || prevAssistant.includes(incoming));
+
+        if (
+          (!lastMessage || lastMessage.content !== data.text || lastMessage.role !== 'assistant') &&
+          !(withinWindow && verySimilar)
+        ) {
+          addMessage({ role: 'assistant', content: data.text });
+          lastAssistantRef.current = { text: data.text, ts: Date.now() };
         }
         setCurrentTranscript('');
         break;
