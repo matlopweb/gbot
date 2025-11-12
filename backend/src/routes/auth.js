@@ -1,10 +1,10 @@
 import express from 'express';
 import { google } from 'googleapis';
 import { logger } from '../utils/logger.js';
-import { getAuthUrl, getTokensFromCode, setCredentials } from '../config/google.js';
-import { generateToken } from '../middleware/auth.js';
+import { getAuthUrl, getTokensFromCode, setCredentials, refreshAccessToken } from '../config/google.js';
+import { generateToken, authenticate } from '../middleware/auth.js';
 import { getUserTokens, saveUserTokens, deleteUserTokens } from '../utils/tokenStore.js';
-import { encryptToken } from '../utils/encryption.js';
+import { encryptToken, decryptToken } from '../utils/encryption.js';
 
 const router = express.Router();
 
