@@ -27,6 +27,14 @@ export function setupWebSocket(wss) {
       return;
     }
 
+    // Cerrar sesiones previas del mismo usuario para evitar duplicados
+    for (const [id, s] of sessions.entries()) {
+      if (s.userId === userId) {
+        try { s.ws.close(1000, 'New session opened'); } catch {}
+        sessions.delete(id);
+      }
+    }
+
     // Crear sesión
     const session = {
       id: sessionId,
@@ -44,7 +52,8 @@ export function setupWebSocket(wss) {
       emailService: null,
       learningService: null,
       contextualMemory: new ContextualMemory(userId), // Sistema de memoria
-      conversationHistory: [] // Historial de conversación
+      conversationHistory: [], // Historial de conversación
+      lastGreetingAt: 0
     };
 
     sessions.set(sessionId, session);
@@ -92,8 +101,10 @@ export function setupWebSocket(wss) {
       timestamp: Date.now()
     });
 
-    // Iniciar comportamiento autónomo
-    startAutonomousBehavior(session);
+    // Iniciar comportamiento autónomo (desactivado por defecto)
+    if (process.env.PROACTIVE_ENABLED === 'true') {
+      startAutonomousBehavior(session);
+    }
   });
 
   // Cleanup de sesiones inactivas
@@ -209,6 +220,18 @@ async function startRealtimeSession(session, config = {}) {
 
 async function handleTextMessage(session, text) {
   session.stateMachine.transition('thinking');
+
+  // Supresión de saludos repetidos
+  const greetRe = /^(hola|buenas(?:\s+tardes|\s+d[ií]as|\s+noches)?)[!.\s]*$/i;
+  const nowTs = Date.now();
+  if (greetRe.test((text || '').trim())) {
+    if (nowTs - session.lastGreetingAt < 8000) {
+      logger.info('Greeting suppressed to avoid duplicates');
+      sendToClient(session.ws, { type: 'response', text: '¡Hola! ¿En qué puedo ayudarte?' });
+      session.stateMachine.transition('idle');
+      return;
+    }
+  }
 
   // Guardar mensaje del usuario en el historial
   if (!session.conversationHistory) {
@@ -903,6 +926,12 @@ async function handleTextMessage(session, text) {
 
     const responseMessage = completion.choices[0].message;
     
+    // Marcar si es saludo para evitar duplicados próximos
+    let responseText = (responseMessage.content || '').trim();
+    if (greetRe.test(responseText)) {
+      session.lastGreetingAt = nowTs;
+    }
+
     // Verificar si hay tool calls
     let functionResults = [];
     
@@ -1534,7 +1563,7 @@ async function handleTextMessage(session, text) {
     }
     
     // Generar respuesta más descriptiva
-    let responseText = responseMessage.content;
+    responseText = responseMessage.content;
     
     // Si hubo function calls y no hay respuesta, hacer segunda llamada a GPT con los resultados
     if (!responseText && functionResults.length > 0) {
@@ -1719,6 +1748,19 @@ async function processAudioWithWhisper(session) {
     
     // Convertir base64 a buffer
     const audioBuffer = Buffer.from(audioData, 'base64');
+
+    // Rechazar audio demasiado corto o probablemente vacío
+    if (!audioBuffer || audioBuffer.length < 10000) { // ~10KB ~ <0.5s
+      logger.warn('Audio too short, skipping transcription');
+      sendToClient(session.ws, {
+        type: 'notice',
+        level: 'info',
+        message: 'No te escuché bien. ¿Puedes repetir, por favor?'
+      });
+      session.stateMachine.transition('idle');
+      session.audioBuffer = [];
+      return;
+    }
     
     logger.info(`Audio buffer size: ${audioBuffer.length} bytes`);
     
@@ -1743,14 +1785,31 @@ async function processAudioWithWhisper(session) {
       });
       
       logger.info(`Transcription: ${transcription}`);
-      
+
+      // Filtro de ruido: descartar transcripciones sospechosas o vacías
+      const noisyPatterns = /(amara\.org|subt[íi]tulos|suscr[íi]bete|dale\s+like|m[aá]s\s+informaci[óo]n|www\.|https?:\/\/|like\s+and\s+share|s[íi]guenos|canal|youtube)/i;
+      const cleaned = (transcription || '').trim();
+      const tooShort = cleaned.length < 3;
+      const isNoisy = noisyPatterns.test(cleaned);
+
+      if (tooShort || isNoisy) {
+        logger.warn('Noisy/low-info transcription filtered');
+        sendToClient(session.ws, {
+          type: 'notice',
+          level: 'info',
+          message: 'No te escuché bien. ¿Puedes repetir, por favor?'
+        });
+        session.stateMachine.transition('idle');
+        return;
+      }
+
       sendToClient(session.ws, {
         type: 'transcription',
-        text: transcription
+        text: cleaned
       });
       
       // Procesar como mensaje de texto
-      await handleTextMessage(session, transcription);
+      await handleTextMessage(session, cleaned);
       
     } finally {
       // Limpiar archivo temporal
