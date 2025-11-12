@@ -12,15 +12,9 @@ export default function AuthCallback() {
     const token = searchParams.get('token');
 
     if (token) {
-      // Decodificar el token para obtener información del usuario
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setAuth(token, { userId: payload.userId });
-        navigate('/dashboard');
-      } catch (error) {
-        console.error('Error processing token:', error);
-        navigate('/');
-      }
+      // Guardar el token directamente sin decodificar para evitar incompatibilidades de base64url
+      setAuth(token, {});
+      navigate('/dashboard');
     } else {
       navigate('/');
     }
