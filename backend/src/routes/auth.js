@@ -43,8 +43,17 @@ router.get('/google/callback', async (req, res) => {
     // Obtener tokens de Google
     const tokens = await getTokensFromCode(code);
 
-    // Generar un ID de usuario único (en producción, usar el ID de Google)
-    const userId = `user_${Date.now()}`;
+    // Obtener información del usuario de Google para un ID estable
+    const oauth2 = google.auth.OAuth2;
+    const oauth2Client = new oauth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+    oauth2Client.setCredentials(tokens);
+    
+    const { data: userInfo } = await google.oauth2('v2').userinfo.get({ auth: oauth2Client });
+    const userId = `google_${userInfo.id}`; // ID estable basado en Google
 
     // Encriptar y guardar tokens
     const encryptedTokens = {
@@ -61,7 +70,7 @@ router.get('/google/callback', async (req, res) => {
       scope: 'full'
     });
 
-    logger.info(`User authenticated: ${userId}`);
+    logger.info(`User authenticated: ${userId} (${userInfo.email})`);
 
     // Redirigir al frontend con el token
     const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback?token=${jwtToken}`;
