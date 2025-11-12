@@ -25,12 +25,12 @@
     <meta property="og:type" content="website" />
     
     <!-- Security -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:3001 ws://localhost:3001; img-src 'self' data: https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:3001 ws://localhost:3001 https://gbot-backend-production.up.railway.app wss://gbot-backend-production.up.railway.app https://*.up.railway.app wss://*.up.railway.app; img-src 'self' data: https:;">
     
     <title>GBot - Asistente Personal</title>
     
     <!-- Preload critical resources -->
-    <link rel="preconnect" href="http://localhost:3001" />
+    <link rel="preconnect" href="https://gbot-backend-production.up.railway.app" />
   </head>
   <body>
     <div id="root"></div>
