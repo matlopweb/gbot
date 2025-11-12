@@ -77,10 +77,12 @@ router.get('/google/callback', async (req, res) => {
     res.redirect(redirectUrl);
 
   } catch (error) {
-    logger.error('OAuth callback error:', error);
+    logger.error('OAuth callback error:', error.message);
+    logger.error('OAuth callback stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Authentication failed'
+      message: 'Authentication failed',
+      error: error.message
     });
   }
 });
