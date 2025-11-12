@@ -14,6 +14,7 @@ export function useWebSocket() {
   const reconnectAttemptsRef = useRef(0);
   const lastConnectAtRef = useRef(0);
   const lastAssistantRef = useRef({ text: '', ts: 0 });
+  const pendingQueueRef = useRef([]);
   
   const { setWebSocket, setConnected, setState, addMessage, setCurrentTranscript, isConnected } = useBotStore();
   const { token } = useAuthStore();
@@ -78,6 +79,17 @@ export function useWebSocket() {
         lastConnectAtRef.current = Date.now();
         releaseLock();
         // Toast removido - conexión silenciosa
+
+        if (pendingQueueRef.current.length > 0) {
+          pendingQueueRef.current.forEach((queued) => {
+            try {
+              ws.send(JSON.stringify(queued));
+            } catch (queueError) {
+              console.error('Error sending queued message:', queueError);
+            }
+          });
+          pendingQueueRef.current = [];
+        }
       };
 
       ws.onmessage = (event) => {
@@ -141,10 +153,13 @@ export function useWebSocket() {
   const send = useCallback((data) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
-    } else {
-      console.warn('WebSocket not connected');
+      return;
     }
-  }, []);
+
+    console.warn('WebSocket not connected, queuing message and attempting reconnect');
+    pendingQueueRef.current.push(data);
+    connect();
+  }, [connect]);
 
   const playAudio = useCallback(async (base64Audio) => {
     try {
