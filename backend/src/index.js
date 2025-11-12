@@ -58,9 +58,9 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
-  logger.info(HTTP server running on port );
-  logger.info('WebSocket server ready');
-  logger.info(Environment: );
+  logger.info(`🚀 Server running on port ${PORT}`);
+  logger.info(`📡 WebSocket server ready`);
+  logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Graceful shutdown
