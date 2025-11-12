@@ -11,7 +11,10 @@ router.use(authenticate);
 router.get('/', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 100, MAX_LIMIT);
+    logger.info(`Fetching conversations for user: ${req.user.userId}, limit: ${limit}`);
+    
     const conversations = await memoryService.getRecentConversations(req.user.userId, limit);
+    logger.info(`Found ${conversations.length} conversation entries for user: ${req.user.userId}`);
 
     const messages = conversations
       .flatMap(entry => (entry.messages || []).map(message => ({
@@ -19,6 +22,8 @@ router.get('/', async (req, res) => {
         timestamp: message.timestamp || entry.created_at
       })))
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    logger.info(`Returning ${messages.length} total messages for user: ${req.user.userId}`);
 
     res.json({
       success: true,
@@ -52,7 +57,11 @@ router.post('/', async (req, res) => {
       isProactive: message.isProactive || false
     };
 
+    logger.info(`Saving conversation message for user: ${req.user.userId}, role: ${payload.role}, content length: ${payload.content.length}`);
+    
     await memoryService.saveConversation(req.user.userId, [payload]);
+    
+    logger.info(`Successfully saved conversation message for user: ${req.user.userId}`);
 
     res.json({
       success: true

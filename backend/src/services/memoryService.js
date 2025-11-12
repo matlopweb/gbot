@@ -14,9 +14,9 @@ class MemoryService {
         process.env.SUPABASE_URL,
         process.env.SUPABASE_KEY
       );
-      logger.info('Memory service initialized with Supabase');
+      logger.info('✅ Memory service initialized with Supabase - conversations will persist');
     } else {
-      logger.warn('Memory service using in-memory storage (data will be lost on restart)');
+      logger.warn('⚠️  Memory service using in-memory storage (data will be lost on restart) - check SUPABASE_URL and SUPABASE_KEY');
     }
   }
 
@@ -75,6 +75,7 @@ class MemoryService {
   async saveConversation(userId, messages) {
     try {
       if (this.supabase) {
+        logger.info(`💾 Saving to Supabase: ${messages.length} messages for user ${userId}`);
         const { error } = await this.supabase
           .from('conversations')
           .insert({
@@ -83,13 +84,16 @@ class MemoryService {
             created_at: new Date().toISOString()
           });
 
-        if (error) throw error;
+        if (error) {
+          logger.error('Supabase save error:', error);
+          throw error;
+        }
+        logger.info(`✅ Successfully saved to Supabase for user: ${userId}`);
       } else {
         const key = `conversation:${userId}:${Date.now()}`;
         this.inMemoryStore.set(key, messages);
+        logger.warn(`💾 Saved to memory (will be lost on restart) for user: ${userId}`);
       }
-
-      logger.debug(`Conversation saved for user: ${userId}`);
     } catch (error) {
       logger.error('Error saving conversation:', error);
       throw error;
@@ -102,6 +106,7 @@ class MemoryService {
   async getRecentConversations(userId, limit = 10) {
     try {
       if (this.supabase) {
+        logger.info(`🔍 Fetching from Supabase: conversations for user ${userId}, limit ${limit}`);
         const { data, error } = await this.supabase
           .from('conversations')
           .select('*')
@@ -109,9 +114,14 @@ class MemoryService {
           .order('created_at', { ascending: false })
           .limit(limit);
 
-        if (error) throw error;
+        if (error) {
+          logger.error('Supabase fetch error:', error);
+          throw error;
+        }
+        logger.info(`✅ Found ${data?.length || 0} conversation entries in Supabase for user: ${userId}`);
         return data || [];
       } else {
+        logger.info(`🔍 Fetching from memory: conversations for user ${userId}`);
         const conversations = [];
         for (const [key, value] of this.inMemoryStore.entries()) {
           if (key.startsWith(`conversation:${userId}`)) {
