@@ -27,15 +27,7 @@ export function setupWebSocket(wss) {
       return;
     }
 
-    // Cerrar sesiones previas del mismo usuario para evitar duplicados
-    for (const [id, s] of sessions.entries()) {
-      if (s.userId === userId) {
-        try { s.ws.close(1000, 'New session opened'); } catch {}
-        sessions.delete(id);
-      }
-    }
-
-    // Crear sesión
+    // Crear sesión (no forzar cierre de sesiones previas para evitar reconexiones en loop)
     const session = {
       id: sessionId,
       userId,
@@ -82,9 +74,14 @@ export function setupWebSocket(wss) {
       }
     });
 
+    // Heartbeat
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
+
     // Manejar desconexión
-    ws.on('close', () => {
-      logger.info(`WebSocket disconnected: ${sessionId}`);
+    ws.on('close', (code, reason) => {
+      const reasonText = reason?.toString?.() || '';
+      logger.info(`WebSocket disconnected: ${sessionId} code=${code} reason=${reasonText}`);
       if (session.openaiSession) {
         session.openaiSession.close();
       }
