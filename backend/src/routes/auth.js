@@ -1,8 +1,9 @@
 import express from 'express';
-import { getAuthUrl, getTokensFromCode, refreshAccessToken } from '../config/google.js';
-import { generateToken, authenticate } from '../middleware/auth.js';
-import { encryptToken, decryptToken } from '../utils/encryption.js';
+import { google } from 'googleapis';
 import { logger } from '../utils/logger.js';
+import { getAuthUrl, getTokensFromCode, setCredentials } from '../config/google.js';
+import { generateToken } from '../middleware/auth.js';
+import { encryptToken, saveUserTokens } from '../utils/tokenStorage.js';
 import { getUserTokens, saveUserTokens, deleteUserTokens } from '../utils/tokenStore.js';
 
 const router = express.Router();
