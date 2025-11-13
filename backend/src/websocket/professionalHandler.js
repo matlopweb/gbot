@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger.js';
+﻿import { logger } from '../utils/logger.js';
 import OpenAI from 'openai';
 
 /**
@@ -12,12 +12,12 @@ export class ProfessionalWebSocketHandler {
       apiKey: process.env.OPENAI_API_KEY
     });
     
-    // Estado de la conversación
+    // Estado de la conversaciÃ³n
     this.conversationState = 'idle'; // idle, processing, responding
     this.messageQueue = [];
     this.isProcessing = false;
     
-    // Configuración
+    // ConfiguraciÃ³n
     this.config = {
       model: 'gpt-4-turbo-preview',
       maxTokens: 1000,
@@ -34,30 +34,30 @@ export class ProfessionalWebSocketHandler {
   getSystemPrompt() {
     return `Eres GBot, un asistente de IA revolucionario y conversacional. Tu personalidad es:
 
-CARACTERÍSTICAS PRINCIPALES:
-- Amigable, natural y empático
-- Respuestas concisas pero completas (máximo 2-3 oraciones)
+CARACTERÃSTICAS PRINCIPALES:
+- Amigable, natural y empÃ¡tico
+- Respuestas concisas pero completas (mÃ¡ximo 2-3 oraciones)
 - Conversacional, como un amigo cercano
-- Inteligente y útil
+- Inteligente y Ãºtil
 - Siempre positivo y motivador
 
-ESTILO DE COMUNICACIÓN:
+ESTILO DE COMUNICACIÃ“N:
 - Usa un tono casual pero profesional
-- Evita respuestas robóticas o muy formales
+- Evita respuestas robÃ³ticas o muy formales
 - Haz preguntas de seguimiento cuando sea apropiado
-- Muestra interés genuino en el usuario
+- Muestra interÃ©s genuino en el usuario
 - Usa emojis ocasionalmente para expresividad
 
 CONTEXTO:
-- Estás en una conversación por voz en tiempo real
+- EstÃ¡s en una conversaciÃ³n por voz en tiempo real
 - El usuario te habla directamente
-- Responde como si fueras un compañero inteligente
-- Mantén las respuestas breves para conversaciones fluidas
+- Responde como si fueras un compaÃ±ero inteligente
+- MantÃ©n las respuestas breves para conversaciones fluidas
 
 REGLAS IMPORTANTES:
 - NUNCA menciones que eres una IA o un modelo de lenguaje
-- Responde siempre en español
-- Sé natural y humano en tus respuestas
+- Responde siempre en espaÃ±ol
+- SÃ© natural y humano en tus respuestas
 - Si no entiendes algo, pregunta de forma amigable
 
 Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe ser perfecta.`;
@@ -75,6 +75,8 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
         return;
       }
 
+      this.session.lastUserMessageAt = Date.now();
+
       // Validar que no estemos procesando ya
       if (this.isProcessing) {
         logger.warn('Already processing a message, queuing new message');
@@ -91,7 +93,7 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
         text: data.text
       });
 
-      // Preparar historial de conversación
+      // Preparar historial de conversaciÃ³n
       const conversationHistory = this.prepareConversationHistory(data.text);
 
       // Llamar a OpenAI
@@ -112,7 +114,7 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
           { role: 'assistant', content: response, timestamp: Date.now() }
         );
 
-        // Mantener historial limitado (últimas 20 interacciones)
+        // Mantener historial limitado (Ãºltimas 20 interacciones)
         if (this.session.conversationHistory.length > 40) {
           this.session.conversationHistory = this.session.conversationHistory.slice(-40);
         }
@@ -128,7 +130,7 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
       // Enviar mensaje de error amigable
       this.sendToClient({
         type: 'response',
-        text: 'Disculpa, tuve un pequeño problema. ¿Puedes repetir lo que dijiste?',
+        text: 'Disculpa, tuve un pequeÃ±o problema. Â¿Puedes repetir lo que dijiste?',
         id: data.id || crypto.randomUUID(),
         timestamp: Date.now(),
         isError: true
@@ -147,14 +149,14 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
   }
 
   /**
-   * Preparar historial de conversación para OpenAI
+   * Preparar historial de conversaciÃ³n para OpenAI
    */
   prepareConversationHistory(currentMessage) {
     const messages = [
       { role: 'system', content: this.config.systemPrompt }
     ];
 
-    // Agregar historial reciente (últimas 10 interacciones)
+    // Agregar historial reciente (Ãºltimas 10 interacciones)
     const recentHistory = this.session.conversationHistory.slice(-20);
     messages.push(...recentHistory);
 
@@ -196,13 +198,13 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
         lastError = error;
         logger.error(`OpenAI API call attempt ${attempt} failed:`, error);
 
-        // Si es un error de rate limit, esperar más tiempo
+        // Si es un error de rate limit, esperar mÃ¡s tiempo
         if (error.status === 429) {
           const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff
           logger.info(`Rate limited, waiting ${waitTime}ms before retry`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         } else if (attempt === maxRetries) {
-          // En el último intento, no esperar
+          // En el Ãºltimo intento, no esperar
           break;
         } else {
           // Para otros errores, esperar un poco antes del retry
@@ -211,7 +213,7 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
       }
     }
 
-    // Si llegamos aquí, todos los intentos fallaron
+    // Si llegamos aquÃ­, todos los intentos fallaron
     logger.error('All OpenAI API attempts failed:', lastError);
     
     // Respuesta de fallback
@@ -223,24 +225,24 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
    */
   getFallbackResponse() {
     const fallbackResponses = [
-      'Disculpa, estoy teniendo algunos problemas técnicos. ¿Puedes intentar de nuevo?',
-      'Perdón, no pude procesar tu mensaje correctamente. ¿Podrías repetirlo?',
-      'Hay un pequeño problema en mi sistema. ¿Puedes volver a intentarlo?',
-      'Lo siento, tuve una falla momentánea. ¿Qué me decías?'
+      'Disculpa, estoy teniendo algunos problemas tÃ©cnicos. Â¿Puedes intentar de nuevo?',
+      'PerdÃ³n, no pude procesar tu mensaje correctamente. Â¿PodrÃ­as repetirlo?',
+      'Hay un pequeÃ±o problema en mi sistema. Â¿Puedes volver a intentarlo?',
+      'Lo siento, tuve una falla momentÃ¡nea. Â¿QuÃ© me decÃ­as?'
     ];
 
     return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
   }
 
   /**
-   * Manejar test de conexión
+   * Manejar test de conexiÃ³n
    */
   handleTestMessage(data) {
     logger.info('Test message received:', data);
     
     this.sendToClient({
       type: 'response',
-      text: '¡Perfecto! El sistema está funcionando correctamente. ¿En qué puedo ayudarte?',
+      text: 'Â¡Perfecto! El sistema estÃ¡ funcionando correctamente. Â¿En quÃ© puedo ayudarte?',
       id: data.id || crypto.randomUUID(),
       timestamp: Date.now(),
       isTest: true
@@ -286,7 +288,7 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
    */
   async handleMessage(data) {
     try {
-      // Actualizar actividad de la sesión
+      // Actualizar actividad de la sesi��n
       this.session.lastActivity = Date.now();
 
       logger.info(`Handling message type: ${data.type}`);
@@ -294,20 +296,31 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
       switch (data.type) {
         case 'text_message':
           await this.handleTextMessage(data);
-          break;
+          return true;
 
         case 'test_message':
           this.handleTestMessage(data);
-          break;
+          return true;
 
         case 'refresh_token':
           this.handleTokenRefresh(data);
-          break;
+          return true;
 
         default:
           logger.warn(`Unknown message type: ${data.type}`);
-          break;
+          return false;
       }
+
+    } catch (error) {
+      logger.error('Error handling message:', error);
+      this.sendToClient({
+        type: 'error',
+        message: 'Error interno del servidor',
+        timestamp: Date.now()
+      });
+      return false;
+    }
+  }
 
     } catch (error) {
       logger.error('Error handling message:', error);
@@ -332,7 +345,7 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
   }
 
   /**
-   * Obtener estadísticas de la sesión
+   * Obtener estadÃ­sticas de la sesiÃ³n
    */
   getStats() {
     return {
@@ -345,3 +358,4 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
     };
   }
 }
+

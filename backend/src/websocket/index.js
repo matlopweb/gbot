@@ -78,9 +78,11 @@ export function setupWebSocket(wss) {
         trackWsMessage(message.type || 'unknown');
         
         // Usar el manejador profesional
+        let handled = false;
         if (session.professionalHandler) {
-          await session.professionalHandler.handleMessage(message);
-        } else {
+          handled = await session.professionalHandler.handleMessage(message);
+        }
+        if (!handled) {
           // Fallback al sistema anterior
           await handleClientMessage(session, message);
         }
