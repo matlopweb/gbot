@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, MessageCircle, Mic, Settings, LogOut } from 'lucide-react';
+import { Menu, X, MessageCircle, Mic, Settings, LogOut, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import BotFace from '../Bot/BotFace';
 import ChatInterface from '../Chat/ChatInterface';
 import VoiceControl from '../Voice/VoiceControl';
 import { ConversationHistory } from '../History/ConversationHistory';
-import { SavedItemsButton } from '../SavedItems/SavedItemsButton';
+import { SavedItemsDrawer } from '../SavedItems/SavedItemsDrawer';
+import { FloatingActionButton } from '../UI/FloatingActionButton';
 import { useBotStore } from '../../store/botStore';
 import { ServiceStatusPanel } from '../Settings/ServiceStatusPanel';
 
@@ -14,50 +15,70 @@ export function MobileLayout() {
   const [activeTab, setActiveTab] = useState('voice');
   const [showMenu, setShowMenu] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showSavedItems, setShowSavedItems] = useState(false);
   const { isConnected } = useBotStore();
   const { logout } = useAuthStore();
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      {/* Header */}
-      <header className="bg-black/20 backdrop-blur-lg border-b border-white/10 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          <h1 className="text-white font-bold text-lg">GBot</h1>
-          <span
-            className={`text-xs px-2 py-1 rounded-full border ${
+      {/* Header mejorado */}
+      <header className="bg-black/25 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg flex items-center justify-center">
+              <Sparkles size={16} className="text-white" />
+            </div>
+            <h1 className="text-white font-bold text-xl tracking-tight">GBot</h1>
+          </div>
+          <motion.span
+            initial={{ scale: 0.9, opacity: 0.8 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className={`text-xs px-3 py-1.5 rounded-full font-medium backdrop-blur-sm ${
               isConnected
-                ? 'text-emerald-300 border-emerald-400/60'
-                : 'text-amber-200 border-amber-400/50'
+                ? 'text-emerald-200 bg-emerald-500/20 border border-emerald-400/30'
+                : 'text-amber-200 bg-amber-500/20 border border-amber-400/30'
             }`}
           >
-            {isConnected ? 'Conectado' : 'Reconectando'}
-          </span>
+            {isConnected ? '● Conectado' : '○ Reconectando'}
+          </motion.span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
+        <div className="flex items-center gap-3">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setShowSettingsPanel(true)}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition-all duration-200 backdrop-blur-sm"
             aria-label="Abrir servicios"
           >
-            <Settings size={20} className="text-white" />
-          </button>
-          <button
+            <Settings size={18} className="text-white" />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => {
               logout();
               window.location.href = '/';
             }}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            className="p-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 transition-all duration-200 backdrop-blur-sm border border-red-400/30"
             aria-label="Cerrar sesión"
           >
-            <LogOut size={20} className="text-white" />
-          </button>
-          <button
+            <LogOut size={18} className="text-red-200" />
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setShowMenu(!showMenu)}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition-all duration-200 backdrop-blur-sm"
           >
-            {showMenu ? <X size={20} className="text-white" /> : <Menu size={20} className="text-white" />}
-          </button>
+            <motion.div
+              animate={{ rotate: showMenu ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {showMenu ? <X size={18} className="text-white" /> : <Menu size={18} className="text-white" />}
+            </motion.div>
+          </motion.button>
         </div>
       </header>
 
@@ -131,8 +152,16 @@ export function MobileLayout() {
         </div>
       </nav>
 
-      <ConversationHistory />
-      <SavedItemsButton />
+      {/* Floating Action Button */}
+      <FloatingActionButton
+        onHistoryClick={() => setShowHistory(true)}
+        onSavedItemsClick={() => setShowSavedItems(true)}
+        onChatClick={() => setActiveTab('chat')}
+      />
+
+      {/* Drawers */}
+      <ConversationHistory isOpen={showHistory} onClose={() => setShowHistory(false)} />
+      <SavedItemsDrawer isOpen={showSavedItems} onClose={() => setShowSavedItems(false)} />
 
       <AnimatePresence>
         {showSettingsPanel && (

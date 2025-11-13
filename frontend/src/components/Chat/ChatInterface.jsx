@@ -47,7 +47,7 @@ export default function ChatInterface({ className = '' }) {
   };
 
   return (
-    <div className={`card flex flex-col h-full ${className}`}>
+    <div className={`bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 flex flex-col h-full ${className}`}>
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <AnimatePresence>
@@ -77,24 +77,40 @@ export default function ChatInterface({ className = '' }) {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-white/10 p-4">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Escribe un mensaje..."
-            className="input flex-1"
-            disabled={state === 'thinking' || state === 'working'}
-          />
-          <button
+      <div className="border-t border-white/10 p-6">
+        <div className="flex gap-3 items-end">
+          <div className="flex-1 relative">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Escribe un mensaje..."
+              className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-transparent resize-none min-h-[44px] max-h-32"
+              disabled={state === 'thinking' || state === 'working'}
+              rows={1}
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(255,255,255,0.3) transparent'
+              }}
+            />
+            {(state === 'thinking' || state === 'working') && (
+              <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <Loader2 size={16} className="animate-spin text-white/60" />
+              </div>
+            )}
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleSend}
             disabled={!input.trim() || state === 'thinking' || state === 'working'}
-            className="btn-primary px-4"
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:opacity-50 text-white p-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             <Send size={20} />
-          </button>
+          </motion.button>
+        </div>
+        <div className="mt-2 text-xs text-white/40 text-center">
+          Presiona Enter para enviar • Shift+Enter para nueva línea
         </div>
       </div>
     </div>
@@ -113,25 +129,31 @@ function MessageBubble({ message }) {
       className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
     >
       <div
-        className={`rounded-2xl px-4 py-3 max-w-[80%] ${
+        className={`rounded-2xl px-5 py-4 max-w-[85%] shadow-lg ${
           isUser
-            ? 'bg-gradient-to-r from-blue-500 to-purple-600'
+            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
             : isSystem
-            ? 'glass border border-yellow-500/30'
-            : 'glass'
+            ? 'bg-yellow-500/10 backdrop-blur-sm border border-yellow-500/30 text-yellow-200'
+            : 'bg-white/10 backdrop-blur-sm border border-white/20 text-white'
         }`}
       >
         {!isUser && !isSystem && (
-          <div className="text-xs text-gray-400 mb-1">GBot</div>
+          <div className="flex items-center gap-2 text-xs text-blue-300 mb-2 font-medium">
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+            GBot
+          </div>
         )}
         {isSystem && (
-          <div className="text-xs text-yellow-400 mb-1">Sistema</div>
+          <div className="flex items-center gap-2 text-xs text-yellow-300 mb-2 font-medium">
+            <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+            Sistema
+          </div>
         )}
         
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
         
         {message.timestamp && (
-          <div className="text-xs text-gray-400 mt-1">
+          <div className="text-xs opacity-70 mt-2 text-right">
             {format(new Date(message.timestamp), 'HH:mm')}
           </div>
         )}

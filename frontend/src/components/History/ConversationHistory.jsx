@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { useBotStore } from '../../store/botStore';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function ConversationHistory() {
+export function ConversationHistory({ isOpen, onClose }) {
   const { messages, clearMessages } = useBotStore();
-  const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filtrar mensajes por búsqueda
@@ -30,38 +29,12 @@ export function ConversationHistory() {
   const handleClearHistory = () => {
     if (window.confirm('¿Estás seguro de que quieres borrar todo el historial?')) {
       clearMessages();
-      setIsOpen(false);
+      onClose?.();
     }
   };
 
   return (
     <>
-      {/* Botón para abrir historial */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-28 right-6 z-40 bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg hover:shadow-xl transition-shadow border border-gray-200 dark:border-gray-700"
-        title="Ver historial"
-      >
-        <svg 
-          className="w-6 h-6 text-gray-700 dark:text-gray-300" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" 
-          />
-        </svg>
-        {messages.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-            {messages.length > 99 ? '99+' : messages.length}
-          </span>
-        )}
-      </button>
-
       {/* Panel de historial */}
       <AnimatePresence>
         {isOpen && (
@@ -71,7 +44,7 @@ export function ConversationHistory() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
+              onClick={onClose}
               className="fixed inset-0 bg-black bg-opacity-50 z-40"
             />
 
@@ -90,7 +63,7 @@ export function ConversationHistory() {
                     Historial
                   </h2>
                   <button
-                    onClick={() => setIsOpen(false)}
+                    onClick={onClose}
                     className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                   >
                     <svg 
