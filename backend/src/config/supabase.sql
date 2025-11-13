@@ -68,6 +68,25 @@ CREATE TABLE IF NOT EXISTS saved_items (
 CREATE INDEX IF NOT EXISTS idx_saved_items_user ON saved_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_saved_items_type ON saved_items(type);
 
+-- Tabla de escenarios personalizados
+CREATE TABLE IF NOT EXISTS user_scenarios (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  tone TEXT DEFAULT 'neutral',
+  widgets JSONB DEFAULT '[]'::jsonb,
+  automations JSONB DEFAULT '[]'::jsonb,
+  is_active BOOLEAN DEFAULT false,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (user_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_scenarios_user ON user_scenarios(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_scenarios_active ON user_scenarios(user_id, is_active);
+
 -- Tabla de embeddings para búsqueda semántica (opcional - requiere extensión pgvector)
 -- Descomenta si quieres usar búsqueda semántica
 /*
@@ -106,11 +125,17 @@ CREATE TRIGGER update_user_preferences_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_user_scenarios_updated_at
+  BEFORE UPDATE ON user_scenarios
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 -- Row Level Security (RLS)
 ALTER TABLE user_contexts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saved_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_scenarios ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de seguridad (ajustar según tus necesidades)
 -- Por ahora, permitir todo desde el service role
@@ -124,10 +149,13 @@ CREATE POLICY "Enable all for service role" ON user_preferences
   FOR ALL USING (true);
 CREATE POLICY "Enable all for service role" ON saved_items
   FOR ALL USING (true);
+CREATE POLICY "Enable all for service role" ON user_scenarios
+  FOR ALL USING (true);
 
 -- Comentarios para documentación
 COMMENT ON TABLE user_contexts IS 'Almacena el contexto de conversación de cada usuario';
 COMMENT ON TABLE conversations IS 'Historial de conversaciones completas';
 COMMENT ON TABLE user_preferences IS 'Preferencias y configuración de cada usuario';
+COMMENT ON TABLE user_scenarios IS 'Escenarios personalizados (modos) configurados por cada usuario';
 
 

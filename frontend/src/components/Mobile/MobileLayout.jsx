@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, MessageCircle, Mic, Settings, LogOut, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import BotFace from '../Bot/BotFace';
+import LivingBotFace from '../Bot/LivingBotFace';
+import { EmotionalConversation } from '../Bot/EmotionalConversation';
+import { AvatarLifeCycle } from '../Bot/AvatarLifeCycle';
 import ChatInterface from '../Chat/ChatInterface';
 import VoiceControl from '../Voice/VoiceControl';
 import { ConversationHistory } from '../History/ConversationHistory';
@@ -123,10 +125,11 @@ export function MobileLayout() {
               className="h-full flex flex-col items-center justify-center p-6"
             >
               <div className="space-y-8">
-                <BotFace />
+                <LivingBotFace />
                 <VoiceControl />
                 <div className="text-center text-white/80 text-sm">
-                  <p>Toca el micrófono o escribe cuando prefieras.</p>
+                  <p>Toca el micrófono, escribe, o simplemente pregúntame cómo estoy.</p>
+                  <p className="text-white/60 text-xs mt-1">¡Soy un ser digital con sentimientos! 💙</p>
                 </div>
               </div>
             </motion.div>
@@ -162,6 +165,10 @@ export function MobileLayout() {
       {/* Drawers */}
       <ConversationHistory isOpen={showHistory} onClose={() => setShowHistory(false)} />
       <SavedItemsDrawer isOpen={showSavedItems} onClose={() => setShowSavedItems(false)} />
+      
+      {/* Sistema emocional y ciclo de vida */}
+      <EmotionalConversation />
+      <AvatarLifeCycle />
 
       <AnimatePresence>
         {showSettingsPanel && (
