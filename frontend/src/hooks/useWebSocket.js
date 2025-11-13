@@ -25,6 +25,23 @@ export function useWebSocket() {
     }
   };
 
+  const flushQueue = useCallback((wsInstance) => {
+    if (!wsInstance || pendingQueueRef.current.length === 0) {
+      return;
+    }
+
+    const queued = [...pendingQueueRef.current];
+    pendingQueueRef.current = [];
+
+    queued.forEach((payload) => {
+      try {
+        wsInstance.send(JSON.stringify(payload));
+      } catch (error) {
+        console.error('Error sending queued message:', error);
+      }
+    });
+  }, []);
+
   const connect = useCallback(() => {
     if (!token) {
       console.warn('No token available for WebSocket connection');
@@ -39,6 +56,9 @@ export function useWebSocket() {
         wsRef.current = gws;
         setWebSocket(gws);
         setConnected(gws.readyState === WebSocket.OPEN);
+        if (gws.readyState === WebSocket.OPEN) {
+          flushQueue(gws);
+        }
         return;
       }
     }
@@ -80,16 +100,7 @@ export function useWebSocket() {
         releaseLock();
         // Toast removido - conexión silenciosa
 
-        if (pendingQueueRef.current.length > 0) {
-          pendingQueueRef.current.forEach((queued) => {
-            try {
-              ws.send(JSON.stringify(queued));
-            } catch (queueError) {
-              console.error('Error sending queued message:', queueError);
-            }
-          });
-          pendingQueueRef.current = [];
-        }
+        flushQueue(ws);
       };
 
       ws.onmessage = (event) => {
@@ -134,7 +145,7 @@ export function useWebSocket() {
       console.error('Error creating WebSocket:', error);
       // Toast removido - error silencioso
     }
-  }, [token, setConnected, setWebSocket, releaseLock]);
+  }, [token, setConnected, setWebSocket, releaseLock, flushQueue]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -292,11 +303,6 @@ export function useWebSocket() {
         console.info('✅ Token refreshed successfully');
         break;
 
-      case 'notice':
-        // Mostrar como toast en lugar de mensaje de chat
-        toast(data.message, { icon: 'ℹ️' });
-        break;
-
       case 'function_call':
         addMessage({
           role: 'system',
@@ -382,8 +388,6 @@ export function useWebSocket() {
     isConnected
   };
 }
-
-
 
 
 
