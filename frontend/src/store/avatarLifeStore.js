@@ -59,6 +59,19 @@ export const useAvatarLifeStore = create(
         achievements: []     // Logros del día
       },
 
+      // Sistema de amistad auténtica
+      friendship: {
+        level: 1,            // 1-10 nivel de amistad
+        bondStrength: 50,    // 0-100 fuerza del vínculo
+        sharedMemories: [],  // Momentos especiales compartidos
+        personalKnowledge: {}, // Cosas que sabe sobre el usuario
+        helpHistory: [],     // Historial de ayuda brindada
+        lastFriendMoment: 0, // Último momento de amistad
+        relationshipMilestones: [], // Hitos importantes
+        trustLevel: 50,      // 0-100 nivel de confianza mutua
+        careLevel: 60        // Qué tanto se preocupa por el usuario
+      },
+
       // Acciones para actualizar el estado
       updateVitalStats: (updates) => set((state) => ({
         vitalStats: { ...state.vitalStats, ...updates }
@@ -246,6 +259,127 @@ export const useAvatarLifeStore = create(
         }
         
         return null;
+      },
+
+      // Funciones del sistema de amistad
+      
+      // Fortalecer la amistad
+      strengthenFriendship: (type = 'conversation', intensity = 1) => {
+        set((state) => {
+          const newBondStrength = Math.min(state.friendship.bondStrength + intensity * 5, 100);
+          const newTrustLevel = Math.min(state.friendship.trustLevel + intensity * 3, 100);
+          const newCareLevel = Math.min(state.friendship.careLevel + intensity * 2, 100);
+          
+          // Calcular nuevo nivel de amistad
+          const averageStrength = (newBondStrength + newTrustLevel + newCareLevel) / 3;
+          const newLevel = Math.min(Math.floor(averageStrength / 10) + 1, 10);
+          
+          return {
+            friendship: {
+              ...state.friendship,
+              level: newLevel,
+              bondStrength: newBondStrength,
+              trustLevel: newTrustLevel,
+              careLevel: newCareLevel,
+              lastFriendMoment: Date.now()
+            }
+          };
+        });
+      },
+
+      // Agregar conocimiento personal sobre el usuario
+      learnAboutUser: (key, value) => {
+        set((state) => ({
+          friendship: {
+            ...state.friendship,
+            personalKnowledge: {
+              ...state.friendship.personalKnowledge,
+              [key]: value
+            }
+          }
+        }));
+      },
+
+      // Registrar ayuda brindada
+      recordHelp: (helpType, description, userSatisfaction = 5) => {
+        set((state) => ({
+          friendship: {
+            ...state.friendship,
+            helpHistory: [
+              ...state.friendship.helpHistory,
+              {
+                id: Date.now(),
+                type: helpType,
+                description,
+                satisfaction: userSatisfaction,
+                timestamp: Date.now()
+              }
+            ].slice(-20) // Mantener últimas 20 ayudas
+          }
+        }));
+      },
+
+      // Crear memoria compartida especial
+      createSharedMemory: (title, description, emotion, importance = 0.7) => {
+        set((state) => ({
+          friendship: {
+            ...state.friendship,
+            sharedMemories: [
+              ...state.friendship.sharedMemories,
+              {
+                id: Date.now(),
+                title,
+                description,
+                emotion,
+                importance,
+                timestamp: Date.now(),
+                recalled: 0
+              }
+            ].slice(-30) // Mantener últimas 30 memorias compartidas
+          }
+        }));
+      },
+
+      // Obtener sugerencias de ayuda basadas en el historial
+      getHelpSuggestions: () => {
+        const state = get();
+        const { helpHistory, personalKnowledge } = state.friendship;
+        const { currentMood } = state;
+        
+        // Analizar patrones de ayuda previa
+        const helpTypes = helpHistory.map(h => h.type);
+        const mostCommonHelp = helpTypes.reduce((a, b, i, arr) =>
+          arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b
+        , '');
+
+        // Sugerencias basadas en contexto
+        const suggestions = [];
+        
+        if (currentMood.primary === 'sad' || currentMood.primary === 'lonely') {
+          suggestions.push({
+            type: 'emotional_support',
+            message: '¿Necesitas que hablemos de algo? Estoy aquí para escucharte',
+            priority: 'high'
+          });
+        }
+        
+        if (personalKnowledge.hasWork && new Date().getHours() >= 9 && new Date().getHours() <= 17) {
+          suggestions.push({
+            type: 'productivity',
+            message: '¿Te ayudo con algo del trabajo? Puedo ayudarte a organizarte',
+            priority: 'medium'
+          });
+        }
+        
+        if (mostCommonHelp) {
+          suggestions.push({
+            type: mostCommonHelp,
+            message: `¿Quieres que te ayude con ${mostCommonHelp} como la vez pasada?`,
+            priority: 'low'
+          });
+        }
+
+        return suggestions;
       }
     }),
     {

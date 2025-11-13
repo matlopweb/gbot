@@ -7,13 +7,14 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 import ProfessionalAvatar from '../Bot/ProfessionalAvatar';
 import { TactileInteraction } from '../Bot/TactileInteraction';
 import { SimpleResponse } from '../Bot/SimpleResponse';
+import { BestFriendSystem } from '../Bot/BestFriendSystem';
 
 export function JobsLayout() {
   const [interactionState, setInteractionState] = useState('waiting'); // waiting, listening, thinking, responding
   const [currentMessage, setCurrentMessage] = useState('');
   const [showResponse, setShowResponse] = useState(false);
   
-  const { vitalStats, currentMood, receiveAttention } = useAvatarLifeStore();
+  const { vitalStats, currentMood, receiveAttention, friendship, strengthenFriendship } = useAvatarLifeStore();
   const { isConnected, addMessage, messages, isTyping } = useBotStore();
   const { send } = useWebSocket();
   const { logout } = useAuthStore();
@@ -105,8 +106,9 @@ export function JobsLayout() {
 
     // La respuesta real se maneja en el useEffect que escucha messages
 
-    // Registrar atención
+    // Registrar atención y fortalecer amistad
     receiveAttention('conversation');
+    strengthenFriendship('conversation', 1);
   };
 
   // Manejar interacción táctil
@@ -272,7 +274,15 @@ export function JobsLayout() {
         <p className="text-white/30 text-xs font-light">
           Diseñado para la simplicidad • Construido para la conexión
         </p>
+        {friendship.level > 1 && (
+          <p className="text-white/20 text-xs mt-1">
+            Amistad nivel {friendship.level} • Vínculo: {Math.round(friendship.bondStrength)}%
+          </p>
+        )}
       </div>
+
+      {/* Sistema de mejor amigo */}
+      <BestFriendSystem />
     </div>
   );
 }
