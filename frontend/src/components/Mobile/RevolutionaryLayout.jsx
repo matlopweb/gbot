@@ -4,8 +4,9 @@ import { useAuthStore } from '../../store/authStore';
 import { useAvatarLifeStore } from '../../store/avatarLifeStore';
 import { useBotStore } from '../../store/botStore';
 import ProfessionalAvatar from '../Bot/ProfessionalAvatar';
-import { InvisibleCompanion } from '../Bot/InvisibleCompanion';
+import { PerfectVoiceSystem } from '../Bot/PerfectVoiceSystem';
 import { NaturalConversationFlow } from '../Bot/NaturalConversationFlow';
+import { IntelligentWelcome } from '../Bot/IntelligentWelcome';
 
 export function RevolutionaryLayout() {
   const [showWelcome, setShowWelcome] = useState(true);
@@ -25,28 +26,7 @@ export function RevolutionaryLayout() {
     return () => clearTimeout(welcomeTimer);
   }, []);
 
-  // Mensaje de bienvenida hablado
-  useEffect(() => {
-    if (isReady && 'speechSynthesis' in window) {
-      const welcomeMessage = friendship.level > 1 
-        ? "¡Hola de nuevo! Me alegra verte. ¿Cómo has estado?"
-        : "¡Hola! Soy GBot, tu nuevo compañero. Vamos a ser grandes amigos. ¿Cómo te sientes hoy?";
-      
-      setTimeout(() => {
-        const utterance = new SpeechSynthesisUtterance(welcomeMessage);
-        utterance.lang = 'es-ES';
-        utterance.rate = 0.9;
-        utterance.pitch = 1.1;
-        utterance.volume = 0.8;
-        
-        const voices = speechSynthesis.getVoices();
-        const spanishVoice = voices.find(voice => voice.lang.includes('es'));
-        if (spanishVoice) utterance.voice = spanishVoice;
-        
-        speechSynthesis.speak(utterance);
-      }, 1000);
-    }
-  }, [isReady, friendship.level]);
+  // El sistema de bienvenida inteligente maneja esto ahora
 
   return (
     <div className="h-screen bg-gradient-to-br from-black via-gray-900 to-black flex flex-col relative overflow-hidden">
@@ -236,7 +216,8 @@ export function RevolutionaryLayout() {
       )}
 
       {/* Sistemas invisibles */}
-      <InvisibleCompanion />
+      <IntelligentWelcome />
+      <PerfectVoiceSystem />
       <NaturalConversationFlow />
     </div>
   );

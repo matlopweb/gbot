@@ -227,36 +227,13 @@ export function NaturalConversationFlow() {
     strengthenFriendship('natural_conversation', 1.5);
   };
 
-  // Función para hablar naturalmente
+  // Función para hablar naturalmente (optimizada)
   const speakNaturally = (text) => {
     return new Promise((resolve) => {
-      if ('speechSynthesis' in window) {
-        speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'es-ES';
-        utterance.rate = 0.85; // Velocidad más natural
-        utterance.pitch = 1.0; // Tono natural
-        utterance.volume = 0.9;
-        
-        // Seleccionar la mejor voz disponible
-        const voices = speechSynthesis.getVoices();
-        const bestVoice = voices.find(voice => 
-          voice.lang.includes('es') && 
-          (voice.name.includes('Google') || voice.name.includes('Microsoft'))
-        ) || voices.find(voice => voice.lang.includes('es'));
-        
-        if (bestVoice) {
-          utterance.voice = bestVoice;
-        }
-        
-        utterance.onend = () => resolve();
-        utterance.onerror = () => resolve();
-        
-        speechSynthesis.speak(utterance);
-      } else {
-        resolve();
-      }
+      // No usar síntesis aquí - el PerfectVoiceSystem se encarga de todo
+      // Solo simular el tiempo de habla para el timing
+      const speechDuration = text.length * 50; // ~50ms por carácter
+      setTimeout(resolve, speechDuration);
     });
   };
 
