@@ -8,6 +8,9 @@ import ProfessionalAvatar from '../Bot/ProfessionalAvatar';
 import { TactileInteraction } from '../Bot/TactileInteraction';
 import { SimpleResponse } from '../Bot/SimpleResponse';
 import { BestFriendSystem } from '../Bot/BestFriendSystem';
+import { EmotionalExpression } from '../Bot/EmotionalExpression';
+import { EmotionalNotifications } from '../Bot/EmotionalNotifications';
+import { ConversationInitiative } from '../Bot/ConversationInitiative';
 
 export function JobsLayout() {
   const [interactionState, setInteractionState] = useState('waiting'); // waiting, listening, thinking, responding
@@ -281,8 +284,11 @@ export function JobsLayout() {
         )}
       </div>
 
-      {/* Sistema de mejor amigo */}
+      {/* Sistemas emocionales y proactivos */}
       <BestFriendSystem />
+      <EmotionalExpression />
+      <EmotionalNotifications />
+      <ConversationInitiative />
     </div>
   );
 }
