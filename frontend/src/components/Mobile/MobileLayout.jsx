@@ -13,7 +13,14 @@ import { FloatingActionButton } from '../UI/FloatingActionButton';
 import { useBotStore } from '../../store/botStore';
 import { ServiceStatusPanel } from '../Settings/ServiceStatusPanel';
 
+import { ContinuousFlowLayout } from './ContinuousFlowLayout';
+
 export function MobileLayout() {
+  // Usar el nuevo layout de flujo continuo
+  return <ContinuousFlowLayout />;
+}
+
+export function MobileLayoutLegacy() {
   const [activeTab, setActiveTab] = useState('voice');
   const [showMenu, setShowMenu] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
