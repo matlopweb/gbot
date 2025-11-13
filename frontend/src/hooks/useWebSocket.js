@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+﻿import { useEffect, useRef, useCallback } from 'react';
 import { useBotStore } from '../store/botStore';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -15,6 +15,7 @@ export function useWebSocket() {
   const lastConnectAtRef = useRef(0);
   const lastAssistantRef = useRef({ text: '', ts: 0 });
   const pendingQueueRef = useRef([]);
+  const lastTokenRefreshRef = useRef(null);
   
   const { setWebSocket, setConnected, setState, addMessage, setCurrentTranscript, isConnected } = useBotStore();
   const { token } = useAuthStore();
@@ -42,6 +43,23 @@ export function useWebSocket() {
     });
   }, []);
 
+  const sendTokenRefresh = useCallback((force = false) => {
+    const ws = wsRef.current;
+    if (!token || !ws || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    if (!force && lastTokenRefreshRef.current === token) {
+      return;
+    }
+
+    lastTokenRefreshRef.current = token;
+    ws.send(JSON.stringify({
+      type: 'refresh_token',
+      token
+    }));
+  }, [token]);
+
   const connect = useCallback(() => {
     if (!token) {
       console.warn('No token available for WebSocket connection');
@@ -63,13 +81,13 @@ export function useWebSocket() {
       }
     }
 
-    // Evitar conectar si ya está OPEN o CONNECTING localmente
+    // Evitar conectar si ya estÃ¡ OPEN o CONNECTING localmente
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
       console.info('WebSocket already connected');
       return;
     }
 
-    // Evitar conexiones paralelas entre múltiples montajes
+    // Evitar conexiones paralelas entre mÃºltiples montajes
     if (typeof window !== 'undefined') {
       if (window[WS_LOCK_KEY]) {
         console.info('WS lock present, skipping connect');
@@ -98,9 +116,10 @@ export function useWebSocket() {
         reconnectAttemptsRef.current = 0;
         lastConnectAtRef.current = Date.now();
         releaseLock();
-        // Toast removido - conexión silenciosa
+        // Toast removido - conexiÃ³n silenciosa
 
         flushQueue(ws);
+        sendTokenRefresh(true);
       };
 
       ws.onmessage = (event) => {
@@ -122,12 +141,13 @@ export function useWebSocket() {
         console.info('WebSocket disconnected');
         setConnected(false);
         setWebSocket(null);
+        lastTokenRefreshRef.current = null;
         if (typeof window !== 'undefined' && window[WS_GLOBAL_KEY] === ws) {
           window[WS_GLOBAL_KEY] = null;
         }
         releaseLock();
         
-        // Reintentos controlados (máx 3) para recuperar desconexiones eventuales
+        // Reintentos controlados (mÃ¡x 3) para recuperar desconexiones eventuales
         if (reconnectAttemptsRef.current < 3) {
           reconnectAttemptsRef.current++;
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 8000);
@@ -145,7 +165,7 @@ export function useWebSocket() {
       console.error('Error creating WebSocket:', error);
       // Toast removido - error silencioso
     }
-  }, [token, setConnected, setWebSocket, releaseLock, flushQueue]);
+  }, [token, setConnected, setWebSocket, releaseLock, flushQueue, sendTokenRefresh]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -159,16 +179,17 @@ export function useWebSocket() {
     
     setConnected(false);
     setWebSocket(null);
+    lastTokenRefreshRef.current = null;
   }, [setConnected, setWebSocket]);
 
   const send = useCallback((data) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.info('📤 Sending message:', data.type);
+      console.info('ðŸ“¤ Sending message:', data.type);
       wsRef.current.send(JSON.stringify(data));
       return;
     }
 
-    console.warn('⚠️ WebSocket not connected, queuing message and attempting reconnect');
+    console.warn('âš ï¸ WebSocket not connected, queuing message and attempting reconnect');
     pendingQueueRef.current.push(data);
     
     // Esperar un poco antes de reconectar para evitar spam
@@ -200,7 +221,7 @@ export function useWebSocket() {
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
-        // Si se está grabando, baja volumen para evitar feedback
+        // Si se estÃ¡ grabando, baja volumen para evitar feedback
         const { isRecording } = useBotStore.getState();
         const gainNode = audioContext.createGain();
         gainNode.gain.value = isRecording ? 0.2 : 1.0;
@@ -249,7 +270,7 @@ export function useWebSocket() {
         break;
 
       case 'transcription':
-        // Mostrar transcripción del audio
+        // Mostrar transcripciÃ³n del audio
         addMessage({
           role: 'user',
           content: data.text
@@ -257,12 +278,12 @@ export function useWebSocket() {
         break;
 
       case 'processing':
-        // El bot está procesando el mensaje
+        // El bot estÃ¡ procesando el mensaje
         console.info('Processing:', data.text);
         break;
 
       case 'response': {
-        console.info('📨 Received response:', data.text);
+        console.info('ðŸ“¨ Received response:', data.text);
         
         // Evitar duplicados consecutivos y similares en ventana corta
         const lastMessage = useBotStore.getState().messages[useBotStore.getState().messages.length - 1];
@@ -272,7 +293,7 @@ export function useWebSocket() {
         const withinWindow = Date.now() - lastAssistantRef.current.ts < 5000;
         const verySimilar = incoming && prevAssistant && (incoming === prevAssistant || incoming.includes(prevAssistant) || prevAssistant.includes(incoming));
 
-        console.info('🔍 Dedup check:', {
+        console.info('ðŸ” Dedup check:', {
           lastMessage: lastMessage?.content,
           withinWindow,
           verySimilar,
@@ -284,11 +305,11 @@ export function useWebSocket() {
           (!lastMessage || lastMessage.content !== data.text || lastMessage.role !== 'assistant') &&
           !(withinWindow && verySimilar)
         ) {
-          console.info('✅ Adding response message to chat');
+          console.info('âœ… Adding response message to chat');
           addMessage({ role: 'assistant', content: data.text });
           lastAssistantRef.current = { text: data.text, ts: Date.now() };
         } else {
-          console.info('❌ Response blocked by deduplication logic');
+          console.info('âŒ Response blocked by deduplication logic');
         }
         setCurrentTranscript('');
         break;
@@ -300,7 +321,7 @@ export function useWebSocket() {
         break;
 
       case 'token_refreshed':
-        console.info('✅ Token refreshed successfully');
+        console.info('âœ… Token refreshed successfully');
         break;
 
       case 'function_call':
@@ -329,24 +350,24 @@ export function useWebSocket() {
           isProactive: true
         });
         
-        // Cambiar emoción del bot
+        // Cambiar emociÃ³n del bot
         if (data.emotion) {
           useBotStore.getState().setState(data.emotion);
         }
         
-        // Reproducir con voz si está disponible
+        // Reproducir con voz si estÃ¡ disponible
         if (data.message) {
           // Opcional: generar TTS para mensajes proactivos
         }
         break;
 
       case 'idle_animation':
-        // Animación de idle
+        // AnimaciÃ³n de idle
         if (data.emotion) {
           const currentState = useBotStore.getState().state;
           if (currentState === 'idle') {
             useBotStore.getState().setState(data.emotion);
-            // Volver a idle después de la animación
+            // Volver a idle despuÃ©s de la animaciÃ³n
             setTimeout(() => {
               useBotStore.getState().setState('idle');
             }, 2000);
@@ -368,18 +389,13 @@ export function useWebSocket() {
         console.info('WS auto-connect already performed');
       }
     }
-    // No desconectar en unmount para evitar ciclos de reconexión cuando hay múltiples montajes
+    // No desconectar en unmount para evitar ciclos de reconexiÃ³n cuando hay mÃºltiples montajes
     return () => {};
   }, [token, connect]);
 
   useEffect(() => {
-    if (token && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      send({
-        type: 'refresh_token',
-        token
-      });
-    }
-  }, [token, send]);
+    sendTokenRefresh(false);
+  }, [token, isConnected, sendTokenRefresh]);
 
   return {
     send,
@@ -388,6 +404,7 @@ export function useWebSocket() {
     isConnected
   };
 }
+
 
 
 
