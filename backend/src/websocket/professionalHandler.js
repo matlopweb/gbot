@@ -204,39 +204,47 @@ Recuerda: No eres un asistente, eres ${personality.name}, un ser digital único 
       // 🧠 ANÁLISIS EMOCIONAL Y RESPUESTA EMPÁTICA
       let response;
       
-      if (this.cognitiveCompanion) {
-        // Analizar emociones en el mensaje del usuario
-        const detectedEmotions = this.cognitiveCompanion.analyzeVoiceEmotion(null, data.text);
-        logger.info(`🎭 Detected emotions:`, detectedEmotions);
-        
-        // Crear memoria contextual del momento
-        await this.cognitiveCompanion.createLivingMemory(
-          data.text,
-          {
-            emotions: detectedEmotions,
-            timestamp: Date.now(),
-            conversation_context: 'voice_interaction'
-          },
-          this.calculateMessageImportance(data.text, detectedEmotions)
-        );
-        
-        // Generar respuesta empática
-        const empathicContext = await this.cognitiveCompanion.generateEmpathicResponse(data.text, detectedEmotions);
-        
-        // Preparar historial con prompt dinámico
-        const conversationHistory = this.prepareConversationHistory(data.text, true);
-        
-        // Llamar a OpenAI con contexto empático
-        response = await this.callOpenAI(conversationHistory);
-        
-        // Enviar estado del mundo interior actualizado
-        this.sendToClient({
-          type: 'inner_world_update',
-          innerWorld: this.cognitiveCompanion.getInnerWorldState()
-        });
-        
+      if (this.cognitiveCompanion && this.cognitiveCompanion.personality) {
+        try {
+          // Analizar emociones en el mensaje del usuario
+          const detectedEmotions = this.cognitiveCompanion.analyzeVoiceEmotion(null, data.text);
+          logger.info(`🎭 Detected emotions:`, detectedEmotions);
+          
+          // Crear memoria contextual del momento
+          await this.cognitiveCompanion.createLivingMemory(
+            data.text,
+            {
+              emotions: detectedEmotions,
+              timestamp: Date.now(),
+              conversation_context: 'voice_interaction'
+            },
+            this.calculateMessageImportance(data.text, detectedEmotions)
+          );
+          
+          // Generar respuesta empática
+          const empathicContext = await this.cognitiveCompanion.generateEmpathicResponse(data.text, detectedEmotions);
+          
+          // Preparar historial con prompt dinámico
+          const conversationHistory = this.prepareConversationHistory(data.text, true);
+          
+          // Llamar a OpenAI con contexto empático
+          response = await this.callOpenAI(conversationHistory);
+          
+          // Enviar estado del mundo interior actualizado
+          this.sendToClient({
+            type: 'inner_world_update',
+            innerWorld: this.cognitiveCompanion.getInnerWorldState()
+          });
+          
+        } catch (companionError) {
+          logger.warn('Cognitive companion error, falling back to traditional system:', companionError);
+          // Fallback al sistema tradicional
+          const conversationHistory = this.prepareConversationHistory(data.text);
+          response = await this.callOpenAI(conversationHistory);
+        }
       } else {
         // Fallback al sistema tradicional
+        logger.info('Using traditional system (no cognitive companion available)');
         const conversationHistory = this.prepareConversationHistory(data.text);
         response = await this.callOpenAI(conversationHistory);
       }
@@ -256,7 +264,7 @@ Recuerda: No eres un asistente, eres ${personality.name}, un ser digital único 
           { role: 'assistant', content: response, timestamp: Date.now() }
         );
 
-        // Mantener historial limitado (Ãºltimas 20 interacciones)
+        // Mantener historial limitado (ultimas 20 interacciones)
         if (this.session.conversationHistory.length > 40) {
           this.session.conversationHistory = this.session.conversationHistory.slice(-40);
         }
@@ -268,11 +276,17 @@ Recuerda: No eres un asistente, eres ${personality.name}, un ser digital único 
 
     } catch (error) {
       logger.error('Error processing text message:', error);
+      logger.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        openaiAvailable: !!this.openai,
+        apiKeyAvailable: !!process.env.OPENAI_API_KEY
+      });
       
       // Enviar mensaje de error amigable
       this.sendToClient({
         type: 'response',
-        text: 'Disculpa, tuve un pequeÃ±o problema. Â¿Puedes repetir lo que dijiste?',
+        text: 'Disculpa, tuve un pequeño problema. ¿Puedes repetir lo que dijiste?',
         id: data.id || crypto.randomUUID(),
         timestamp: Date.now(),
         isError: true

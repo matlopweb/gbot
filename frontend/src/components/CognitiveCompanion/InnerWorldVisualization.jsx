@@ -24,11 +24,33 @@ export function InnerWorldVisualization({ innerWorld, companion, isVisible, onTo
     return () => clearInterval(interval);
   }, [innerWorld?.energy_visualization]);
 
-  if (!isVisible || !innerWorld || !companion) return null;
+  if (!isVisible) return null;
+  
+  // Datos por defecto si no hay información del compañero
+  const defaultInnerWorld = {
+    emotional_state: 'curious',
+    energy_visualization: 75,
+    relationship_depth: 0,
+    inspiration_level: 50,
+    current_thoughts: ['Esperando conexión con el compañero cognitivo...'],
+    focus_areas: ['Inicializando sistema'],
+    memory_count: 0,
+    last_updated: new Date().toISOString()
+  };
+  
+  const defaultCompanion = {
+    name: 'GBot',
+    traits: ['Inteligente', 'Empático', 'Curioso'],
+    mood: 'curious',
+    energy: 75
+  };
+  
+  const safeInnerWorld = innerWorld || defaultInnerWorld;
+  const safeCompanion = companion || defaultCompanion;
 
-  const energyLevel = innerWorld.energy_visualization || 50;
-  const relationshipDepth = innerWorld.relationship_depth || 0;
-  const inspirationLevel = innerWorld.inspiration_level || 50;
+  const energyLevel = safeInnerWorld.energy_visualization || 50;
+  const relationshipDepth = safeInnerWorld.relationship_depth || 0;
+  const inspirationLevel = safeInnerWorld.inspiration_level || 50;
 
   return (
     <AnimatePresence>
@@ -54,7 +76,7 @@ export function InnerWorldVisualization({ innerWorld, companion, isVisible, onTo
               </motion.div>
               <div>
                 <h3 className="text-white font-bold text-sm">Mundo Interior</h3>
-                <p className="text-purple-200 text-xs">{companion.name}</p>
+                <p className="text-purple-200 text-xs">{safeCompanion.name}</p>
               </div>
             </div>
             <button
@@ -93,8 +115,8 @@ export function InnerWorldVisualization({ innerWorld, companion, isVisible, onTo
         <div className="p-4 max-h-96 overflow-y-auto">
           {activeSection === 'overview' && (
             <OverviewSection 
-              innerWorld={innerWorld}
-              companion={companion}
+              innerWorld={safeInnerWorld}
+              companion={safeCompanion}
               energyLevel={energyLevel}
               relationshipDepth={relationshipDepth}
               inspirationLevel={inspirationLevel}
@@ -103,20 +125,20 @@ export function InnerWorldVisualization({ innerWorld, companion, isVisible, onTo
 
           {activeSection === 'emotions' && (
             <EmotionsSection 
-              innerWorld={innerWorld}
-              companion={companion}
+              innerWorld={safeInnerWorld}
+              companion={safeCompanion}
             />
           )}
 
           {activeSection === 'thoughts' && (
             <ThoughtsSection 
-              innerWorld={innerWorld}
+              innerWorld={safeInnerWorld}
             />
           )}
 
           {activeSection === 'focus' && (
             <FocusSection 
-              innerWorld={innerWorld}
+              innerWorld={safeInnerWorld}
             />
           )}
         </div>
@@ -125,7 +147,7 @@ export function InnerWorldVisualization({ innerWorld, companion, isVisible, onTo
         <div className="bg-gray-900 px-4 py-2 border-t border-gray-700">
           <div className="flex items-center justify-between text-xs text-gray-400">
             <span>Última actualización</span>
-            <span>{new Date(innerWorld.last_updated).toLocaleTimeString()}</span>
+            <span>{new Date(safeInnerWorld.last_updated).toLocaleTimeString()}</span>
           </div>
         </div>
       </motion.div>
