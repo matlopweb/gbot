@@ -1,4 +1,4 @@
-import { WebSocket } from 'ws';
+﻿import { WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import { OpenAIRealtimeSession } from './openaiRealtime.js';
 import { BotStateMachine } from './stateMachine.js';
@@ -15,7 +15,7 @@ export function setupWebSocket(wss) {
     const sessionId = uuidv4();
     logger.info(`New WebSocket connection: ${sessionId}`);
 
-    // Verificar autenticación
+    // Verificar autenticaciÃ³n
     const token = new URL(req.url, 'http://localhost').searchParams.get('token');
     
     let decoded;
@@ -28,7 +28,7 @@ export function setupWebSocket(wss) {
     }
     const userId = decoded.userId;
 
-    // Crear sesión (no forzar cierre de sesiones previas para evitar reconexiones en loop)
+    // Crear sesiÃ³n (no forzar cierre de sesiones previas para evitar reconexiones en loop)
     const session = {
       id: sessionId,
       userId,
@@ -47,8 +47,9 @@ export function setupWebSocket(wss) {
       emailService: null,
       learningService: null,
       contextualMemory: new ContextualMemory(userId), // Sistema de memoria
-      conversationHistory: [], // Historial de conversación
+      conversationHistory: [], // Historial de conversaciÃ³n
       lastGreetingAt: 0,
+      lastUserMessageAt: 0,
       processedMessageIds: new Set()
     };
     bindSessionToken(session, token);
@@ -56,7 +57,7 @@ export function setupWebSocket(wss) {
     sessions.set(sessionId, session);
     trackWsConnection(1);
 
-    // Inicializar máquina de estados
+    // Inicializar mÃ¡quina de estados
     session.stateMachine.on('stateChange', (newState) => {
       sendToClient(ws, {
         type: 'state_change',
@@ -86,7 +87,7 @@ export function setupWebSocket(wss) {
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
 
-    // Manejar desconexión
+    // Manejar desconexiÃ³n
     ws.on('close', (code, reason) => {
       const reasonText = reason?.toString?.() || '';
       logger.info(`WebSocket disconnected: ${sessionId} code=${code} reason=${reasonText}`);
@@ -100,14 +101,14 @@ export function setupWebSocket(wss) {
       trackWsConnection(-1);
     });
 
-    // Enviar confirmación de conexión
+    // Enviar confirmaciÃ³n de conexiÃ³n
     sendToClient(ws, {
       type: 'connected',
       sessionId,
       timestamp: Date.now()
     });
 
-    // Iniciar comportamiento autónomo (desactivado por defecto)
+    // Iniciar comportamiento autÃ³nomo (desactivado por defecto)
     if (process.env.PROACTIVE_ENABLED === 'true') {
       startAutonomousBehavior(session);
     }
@@ -250,7 +251,7 @@ async function startRealtimeSession(session, config = {}) {
         arguments: functionCall.arguments
       });
 
-      // Ejecutar la función y retornar resultado
+      // Ejecutar la funciÃ³n y retornar resultado
       const result = await executeFunctionCall(session, functionCall);
       
       return result;
@@ -289,15 +290,18 @@ async function handleTextMessage(session, payload) {
     if (first) session.processedMessageIds.delete(first);
   }
 
+  // Registrar actividad reciente del usuario para coordinar mensajes proactivos
+  session.lastUserMessageAt = Date.now();
+
   session.stateMachine.transition('thinking');
 
-  // Supresión de saludos repetidos
-  const greetRe = /^(hola|buenas(?:\s+tardes|\s+d[ií]as|\s+noches)?)[!.\s]*$/i;
+  // SupresiÃ³n de saludos repetidos
+  const greetRe = /^(hola|buenas(?:\s+tardes|\s+d[iÃ­]as|\s+noches)?)[!.\s]*$/i;
   const nowTs = Date.now();
   if (greetRe.test((text || '').trim())) {
     if (nowTs - session.lastGreetingAt < 8000) {
       logger.info('Greeting suppressed to avoid duplicates');
-      sendToClient(session.ws, { type: 'response', text: '¡Hola! ¿En qué puedo ayudarte?' });
+      sendToClient(session.ws, { type: 'response', text: 'Â¡Hola! Â¿En quÃ© puedo ayudarte?' });
       session.stateMachine.transition('idle');
       return;
     }
@@ -315,7 +319,7 @@ async function handleTextMessage(session, payload) {
     id: messageId
   });
   
-  // Aprender de la interacción
+  // Aprender de la interacciÃ³n
   await session.contextualMemory.learnFromInteraction({
     type: 'message',
     content: text,
@@ -332,11 +336,11 @@ async function handleTextMessage(session, payload) {
     const { default: OpenAI } = await import('openai');
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // Usar servicios de Google de la sesión si ya están inicializados
+    // Usar servicios de Google de la sesiÃ³n si ya estÃ¡n inicializados
     let calendarService = session.calendarService;
     let tasksService = session.tasksService;
     
-    // Solo inicializar servicios si no existen en la sesión
+    // Solo inicializar servicios si no existen en la sesiÃ³n
     if (!calendarService || !tasksService) {
       try {
         const { CalendarService } = await import('../services/calendarService.js');
@@ -359,7 +363,7 @@ async function handleTextMessage(session, payload) {
           const { EmailService } = await import('../services/emailService.js');
           const emailService = new EmailService(tokens);
           
-          // Guardar servicios en la sesión
+          // Guardar servicios en la sesiÃ³n
           session.calendarService = calendarService;
           session.tasksService = tasksService;
           session.emailService = emailService;
@@ -463,7 +467,7 @@ async function handleTextMessage(session, payload) {
       }
     }
     
-    // Inicializar servicio de búsqueda web
+    // Inicializar servicio de bÃºsqueda web
     const { WebSearchService } = await import('../services/webSearch.js');
     const webSearch = new WebSearchService();
     
@@ -477,18 +481,18 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'search_web',
-          description: 'Busca información actualizada en internet. Usa esta función cuando el usuario pregunte sobre algo que no conoces, información reciente, noticias, o conceptos nuevos después de octubre 2023.',
+          description: 'Busca informaciÃ³n actualizada en internet. Usa esta funciÃ³n cuando el usuario pregunte sobre algo que no conoces, informaciÃ³n reciente, noticias, o conceptos nuevos despuÃ©s de octubre 2023.',
           parameters: {
             type: 'object',
             properties: {
               query: { 
                 type: 'string', 
-                description: 'La consulta de búsqueda en español' 
+                description: 'La consulta de bÃºsqueda en espaÃ±ol' 
               },
               searchType: {
                 type: 'string',
                 enum: ['general', 'news', 'entity'],
-                description: 'Tipo de búsqueda: general (información general), news (noticias recientes), entity (información sobre persona/empresa/concepto)'
+                description: 'Tipo de bÃºsqueda: general (informaciÃ³n general), news (noticias recientes), entity (informaciÃ³n sobre persona/empresa/concepto)'
               }
             },
             required: ['query']
@@ -503,8 +507,8 @@ async function handleTextMessage(session, payload) {
           parameters: {
             type: 'object',
             properties: {
-              summary: { type: 'string', description: 'Título del evento' },
-              description: { type: 'string', description: 'Descripción del evento' },
+              summary: { type: 'string', description: 'TÃ­tulo del evento' },
+              description: { type: 'string', description: 'DescripciÃ³n del evento' },
               start: { type: 'string', description: 'Fecha y hora de inicio (ISO 8601)' },
               end: { type: 'string', description: 'Fecha y hora de fin (ISO 8601)' }
             },
@@ -516,11 +520,11 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'list_calendar_events',
-          description: 'Lista eventos próximos del calendario',
+          description: 'Lista eventos prÃ³ximos del calendario',
           parameters: {
             type: 'object',
             properties: {
-              maxResults: { type: 'number', description: 'Número máximo de eventos a listar' }
+              maxResults: { type: 'number', description: 'NÃºmero mÃ¡ximo de eventos a listar' }
             }
           }
         }
@@ -533,7 +537,7 @@ async function handleTextMessage(session, payload) {
           parameters: {
             type: 'object',
             properties: {
-              title: { type: 'string', description: 'Título de la tarea' },
+              title: { type: 'string', description: 'TÃ­tulo de la tarea' },
               notes: { type: 'string', description: 'Notas adicionales' },
               due: { type: 'string', description: 'Fecha de vencimiento (ISO 8601)' }
             },
@@ -549,7 +553,7 @@ async function handleTextMessage(session, payload) {
           parameters: {
             type: 'object',
             properties: {
-              maxResults: { type: 'number', description: 'Número máximo de tareas' }
+              maxResults: { type: 'number', description: 'NÃºmero mÃ¡ximo de tareas' }
             }
           }
         }
@@ -558,13 +562,13 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'get_weather',
-          description: 'Obtiene el clima actual y pronóstico. Usa cuando el usuario pregunte sobre el clima, temperatura o condiciones meteorológicas.',
+          description: 'Obtiene el clima actual y pronÃ³stico. Usa cuando el usuario pregunte sobre el clima, temperatura o condiciones meteorolÃ³gicas.',
           parameters: {
             type: 'object',
             properties: {
               includeForecast: { 
                 type: 'boolean', 
-                description: 'Si debe incluir pronóstico de los próximos días' 
+                description: 'Si debe incluir pronÃ³stico de los prÃ³ximos dÃ­as' 
               }
             }
           }
@@ -574,7 +578,7 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'get_clothing_suggestion',
-          description: 'Sugiere qué ropa usar según el clima actual. Usa cuando el usuario pregunte qué ponerse o cómo vestirse.',
+          description: 'Sugiere quÃ© ropa usar segÃºn el clima actual. Usa cuando el usuario pregunte quÃ© ponerse o cÃ³mo vestirse.',
           parameters: {
             type: 'object',
             properties: {}
@@ -585,7 +589,7 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'check_good_time_to_go_out',
-          description: 'Verifica si es buen momento para salir según el clima. Usa cuando el usuario pregunte si puede salir o si es buen momento.',
+          description: 'Verifica si es buen momento para salir segÃºn el clima. Usa cuando el usuario pregunte si puede salir o si es buen momento.',
           parameters: {
             type: 'object',
             properties: {}
@@ -596,7 +600,7 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'spotify_play',
-          description: 'Reproduce música en Spotify. Usa cuando el usuario pida reproducir música, play, o iniciar reproducción.',
+          description: 'Reproduce mÃºsica en Spotify. Usa cuando el usuario pida reproducir mÃºsica, play, o iniciar reproducciÃ³n.',
           parameters: {
             type: 'object',
             properties: {}
@@ -607,7 +611,7 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'spotify_pause',
-          description: 'Pausa la música en Spotify. Usa cuando el usuario pida pausar, detener o parar la música.',
+          description: 'Pausa la mÃºsica en Spotify. Usa cuando el usuario pida pausar, detener o parar la mÃºsica.',
           parameters: {
             type: 'object',
             properties: {}
@@ -618,7 +622,7 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'spotify_next',
-          description: 'Salta a la siguiente canción. Usa cuando el usuario pida siguiente, next, o cambiar de canción.',
+          description: 'Salta a la siguiente canciÃ³n. Usa cuando el usuario pida siguiente, next, o cambiar de canciÃ³n.',
           parameters: {
             type: 'object',
             properties: {}
@@ -629,7 +633,7 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'spotify_previous',
-          description: 'Vuelve a la canción anterior. Usa cuando el usuario pida anterior, previous, o volver atrás.',
+          description: 'Vuelve a la canciÃ³n anterior. Usa cuando el usuario pida anterior, previous, o volver atrÃ¡s.',
           parameters: {
             type: 'object',
             properties: {}
@@ -657,13 +661,13 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'spotify_play_for_activity',
-          description: 'Reproduce música apropiada para una actividad específica (programar, estudiar, ejercicio, relajarse, etc.). Usa cuando el usuario pida música para una actividad.',
+          description: 'Reproduce mÃºsica apropiada para una actividad especÃ­fica (programar, estudiar, ejercicio, relajarse, etc.). Usa cuando el usuario pida mÃºsica para una actividad.',
           parameters: {
             type: 'object',
             properties: {
               activity: {
                 type: 'string',
-                description: 'La actividad para la que se quiere música (programar, estudiar, ejercicio, relajarse, trabajar, etc.)'
+                description: 'La actividad para la que se quiere mÃºsica (programar, estudiar, ejercicio, relajarse, trabajar, etc.)'
               }
             },
             required: ['activity']
@@ -674,7 +678,7 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'spotify_current_track',
-          description: 'Obtiene información sobre la canción que está sonando actualmente. Usa cuando el usuario pregunte qué música está sonando o qué canción es.',
+          description: 'Obtiene informaciÃ³n sobre la canciÃ³n que estÃ¡ sonando actualmente. Usa cuando el usuario pregunte quÃ© mÃºsica estÃ¡ sonando o quÃ© canciÃ³n es.',
           parameters: {
             type: 'object',
             properties: {}
@@ -685,18 +689,18 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'spotify_search',
-          description: 'Busca y reproduce una canción, artista o playlist específica. Usa cuando el usuario pida una canción o artista en particular.',
+          description: 'Busca y reproduce una canciÃ³n, artista o playlist especÃ­fica. Usa cuando el usuario pida una canciÃ³n o artista en particular.',
           parameters: {
             type: 'object',
             properties: {
               query: {
                 type: 'string',
-                description: 'Nombre de la canción, artista o playlist a buscar'
+                description: 'Nombre de la canciÃ³n, artista o playlist a buscar'
               },
               type: {
                 type: 'string',
                 enum: ['track', 'playlist'],
-                description: 'Tipo de búsqueda: track (canción) o playlist'
+                description: 'Tipo de bÃºsqueda: track (canciÃ³n) o playlist'
               }
             },
             required: ['query']
@@ -736,11 +740,11 @@ async function handleTextMessage(session, payload) {
               },
               title: {
                 type: 'string',
-                description: 'Título de la tarea'
+                description: 'TÃ­tulo de la tarea'
               },
               description: {
                 type: 'string',
-                description: 'Descripción de la tarea (opcional)'
+                description: 'DescripciÃ³n de la tarea (opcional)'
               },
               dueDate: {
                 type: 'string',
@@ -784,11 +788,11 @@ async function handleTextMessage(session, payload) {
             properties: {
               maxResults: {
                 type: 'number',
-                description: 'Número máximo de emails a obtener (default: 10)'
+                description: 'NÃºmero mÃ¡ximo de emails a obtener (default: 10)'
               },
               onlyUnread: {
                 type: 'boolean',
-                description: 'Solo emails no leídos (default: true)'
+                description: 'Solo emails no leÃ­dos (default: true)'
               }
             }
           }
@@ -809,13 +813,13 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'email_mark_read',
-          description: 'Marca un email como leído. Usa cuando el usuario pida marcar un email como leído.',
+          description: 'Marca un email como leÃ­do. Usa cuando el usuario pida marcar un email como leÃ­do.',
           parameters: {
             type: 'object',
             properties: {
               emailIndex: {
                 type: 'number',
-                description: 'Índice del email en la lista (1-based)'
+                description: 'Ãndice del email en la lista (1-based)'
               }
             },
             required: ['emailIndex']
@@ -826,13 +830,13 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'email_send',
-          description: 'Envía un email. Usa cuando el usuario pida enviar un correo.',
+          description: 'EnvÃ­a un email. Usa cuando el usuario pida enviar un correo.',
           parameters: {
             type: 'object',
             properties: {
               to: {
                 type: 'string',
-                description: 'Dirección de email del destinatario'
+                description: 'DirecciÃ³n de email del destinatario'
               },
               subject: {
                 type: 'string',
@@ -851,13 +855,13 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'learning_add_course',
-          description: 'Agrega un curso para seguimiento. Usa cuando el usuario mencione que está tomando un curso.',
+          description: 'Agrega un curso para seguimiento. Usa cuando el usuario mencione que estÃ¡ tomando un curso.',
           parameters: {
             type: 'object',
             properties: {
               title: {
                 type: 'string',
-                description: 'Título del curso'
+                description: 'TÃ­tulo del curso'
               },
               platform: {
                 type: 'string',
@@ -876,7 +880,7 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'learning_get_stats',
-          description: 'Obtiene estadísticas de aprendizaje. Usa cuando el usuario pregunte por su progreso de estudio.',
+          description: 'Obtiene estadÃ­sticas de aprendizaje. Usa cuando el usuario pregunte por su progreso de estudio.',
           parameters: {
             type: 'object',
             properties: {}
@@ -901,7 +905,7 @@ async function handleTextMessage(session, payload) {
               },
               category: {
                 type: 'string',
-                description: 'Categoría del flashcard'
+                description: 'CategorÃ­a del flashcard'
               }
             },
             required: ['question', 'answer']
@@ -912,13 +916,13 @@ async function handleTextMessage(session, payload) {
         type: 'function',
         function: {
           name: 'learning_review_flashcards',
-          description: 'Inicia sesión de revisión de flashcards. Usa cuando el usuario quiera estudiar o revisar flashcards.',
+          description: 'Inicia sesiÃ³n de revisiÃ³n de flashcards. Usa cuando el usuario quiera estudiar o revisar flashcards.',
           parameters: {
             type: 'object',
             properties: {
               limit: {
                 type: 'number',
-                description: 'Número de flashcards a revisar (default: 10)'
+                description: 'NÃºmero de flashcards a revisar (default: 10)'
               }
             }
           }
@@ -941,12 +945,12 @@ async function handleTextMessage(session, payload) {
         {
           role: 'system',
           content: `Eres GBot, un asistente personal inteligente y amigable. 
-          Ayudas a los usuarios con su calendario, tareas y conversación general.
-          Responde de forma natural, concisa y útil en español.
+          Ayudas a los usuarios con su calendario, tareas y conversaciÃ³n general.
+          Responde de forma natural, concisa y Ãºtil en espaÃ±ol.
           
           FECHA Y HORA ACTUAL: ${currentDate} ${currentTime} (Zona horaria: America/Argentina/Buenos_Aires)
           
-          ${userProfile ? `INFORMACIÓN DEL USUARIO:\n${userProfile}\n` : ''}
+          ${userProfile ? `INFORMACIÃ“N DEL USUARIO:\n${userProfile}\n` : ''}
           
           ${userContext.recentTopics.length > 0 ? `TEMAS RECIENTES: ${userContext.recentTopics.join(', ')}\n` : ''}
           
@@ -955,25 +959,25 @@ async function handleTextMessage(session, payload) {
           ${userContext.patterns.recurringMeetings.length > 0 ? `REUNIONES RECURRENTES: ${userContext.patterns.recurringMeetings.map(m => `${m.day} a las ${m.time} - ${m.topic}`).join(', ')}\n` : ''}
           
           CAPACIDADES DISPONIBLES:
-          - 🌐 BÚSQUEDA WEB: Puedes buscar información actualizada en internet usando la función search_web
-          - Usa búsqueda web cuando:
+          - ðŸŒ BÃšSQUEDA WEB: Puedes buscar informaciÃ³n actualizada en internet usando la funciÃ³n search_web
+          - Usa bÃºsqueda web cuando:
             * El usuario pregunte sobre algo que no conoces
-            * Se mencionen eventos/noticias después de octubre 2023
+            * Se mencionen eventos/noticias despuÃ©s de octubre 2023
             * Se pregunte por conceptos nuevos, productos recientes, personas actuales
-            * Se necesite información en tiempo real
+            * Se necesite informaciÃ³n en tiempo real
           
-          ${calendarService && tasksService ? '- 📅 CALENDAR & TASKS: Tienes acceso a Google Calendar y Google Tasks del usuario.' : ''}
+          ${calendarService && tasksService ? '- ðŸ“… CALENDAR & TASKS: Tienes acceso a Google Calendar y Google Tasks del usuario.' : ''}
           
           ${calendarService && tasksService ? `Cuando el usuario te pida crear eventos o tareas:
           - SIEMPRE usa la fecha actual como referencia
-          - Para "mañana", suma 1 día a la fecha actual
+          - Para "maÃ±ana", suma 1 dÃ­a a la fecha actual
           - Para "hoy", usa la fecha actual
           - Usa formato ISO 8601: YYYY-MM-DDTHH:MM:SS
           - Ejemplo: ${currentDate}T14:00:00` : ''}
           
-          IMPORTANTE: Si no sabes algo, NO inventes. Usa search_web para obtener información real y actualizada.
+          IMPORTANTE: Si no sabes algo, NO inventes. Usa search_web para obtener informaciÃ³n real y actualizada.
           
-          Usa la información del usuario para personalizar tus respuestas.
+          Usa la informaciÃ³n del usuario para personalizar tus respuestas.
           Siempre confirma las acciones realizadas de forma amigable.`
         },
         {
@@ -985,7 +989,7 @@ async function handleTextMessage(session, payload) {
       max_tokens: 500
     };
     
-    // Solo agregar tools y tool_choice si los servicios están disponibles
+    // Solo agregar tools y tool_choice si los servicios estÃ¡n disponibles
     if (calendarService && tasksService) {
       completionParams.tools = tools;
       completionParams.tool_choice = 'auto';
@@ -995,7 +999,7 @@ async function handleTextMessage(session, payload) {
 
     const responseMessage = completion.choices[0].message;
     
-    // Marcar si es saludo para evitar duplicados próximos
+    // Marcar si es saludo para evitar duplicados prÃ³ximos
     let responseText = (responseMessage.content || '').trim();
     if (greetRe.test(responseText)) {
       session.lastGreetingAt = nowTs;
@@ -1038,13 +1042,13 @@ async function handleTextMessage(session, payload) {
               if (searchResult) {
                 const formattedResults = webSearch.formatResultsForPrompt(searchResult);
                 functionResults.push({
-                  function: 'búsqueda web',
+                  function: 'bÃºsqueda web',
                   details: formattedResults
                 });
               } else {
                 functionResults.push({
-                  function: 'búsqueda web',
-                  details: 'No se pudo realizar la búsqueda. Servicio no disponible.'
+                  function: 'bÃºsqueda web',
+                  details: 'No se pudo realizar la bÃºsqueda. Servicio no disponible.'
                 });
               }
               break;
@@ -1068,7 +1072,7 @@ async function handleTextMessage(session, payload) {
                 })}`
               });
               
-              // Reacción proactiva
+              // ReacciÃ³n proactiva
               if (session.proactiveBehavior) {
                 session.proactiveBehavior.reactToUserAction('event_created', {
                   eventName: functionArgs.summary
@@ -1086,7 +1090,7 @@ async function handleTextMessage(session, payload) {
             case 'list_calendar_events':
               result = await calendarService.listEvents(functionArgs.maxResults || 10);
               const eventCount = result.events?.length || 0;
-              let eventDetails = `Encontré ${eventCount} evento${eventCount !== 1 ? 's' : ''}`;
+              let eventDetails = `EncontrÃ© ${eventCount} evento${eventCount !== 1 ? 's' : ''}`;
               
               if (eventCount > 0) {
                 eventDetails += ':\n';
@@ -1127,7 +1131,7 @@ async function handleTextMessage(session, payload) {
                 details: `"${functionArgs.title}"${functionArgs.due ? ' para ' + new Date(functionArgs.due).toLocaleDateString('es-ES') : ''}`
               });
               
-              // Reacción proactiva
+              // ReacciÃ³n proactiva
               if (session.proactiveBehavior) {
                 session.proactiveBehavior.reactToUserAction('task_created', {
                   taskName: functionArgs.title
@@ -1175,7 +1179,7 @@ async function handleTextMessage(session, payload) {
                 details: taskDetails
               });
               
-              // Reacción proactiva
+              // ReacciÃ³n proactiva
               if (session.proactiveBehavior) {
                 if (taskCount === 0) {
                   session.proactiveBehavior.reactToUserAction('no_tasks');
@@ -1190,19 +1194,19 @@ async function handleTextMessage(session, payload) {
               let weatherInfo = '';
               
               if (weather) {
-                weatherInfo = `Clima en ${weather.city}: ${weather.temperature}°C (sensación: ${weather.feelsLike}°C), ${weather.description}. Humedad: ${weather.humidity}%, Viento: ${weather.windSpeed} m/s.`;
+                weatherInfo = `Clima en ${weather.city}: ${weather.temperature}Â°C (sensaciÃ³n: ${weather.feelsLike}Â°C), ${weather.description}. Humedad: ${weather.humidity}%, Viento: ${weather.windSpeed} m/s.`;
                 
                 if (functionArgs.includeForecast) {
                   const forecast = await envContext.getWeatherForecast(3);
                   if (forecast) {
-                    weatherInfo += '\n\nPronóstico:\n';
+                    weatherInfo += '\n\nPronÃ³stico:\n';
                     forecast.forEach(day => {
-                      weatherInfo += `${day.date}: ${day.tempMin}°C - ${day.tempMax}°C, ${day.description}${day.rain ? ' (posible lluvia)' : ''}\n`;
+                      weatherInfo += `${day.date}: ${day.tempMin}Â°C - ${day.tempMax}Â°C, ${day.description}${day.rain ? ' (posible lluvia)' : ''}\n`;
                     });
                   }
                 }
               } else {
-                weatherInfo = 'No pude obtener información del clima.';
+                weatherInfo = 'No pude obtener informaciÃ³n del clima.';
               }
               
               functionResults.push({
@@ -1230,14 +1234,14 @@ async function handleTextMessage(session, payload) {
             case 'spotify_play':
               if (!session.spotifyService) {
                 functionResults.push({
-                  function: 'reproducir música',
-                  error: 'Spotify no está conectado. Por favor conecta tu cuenta de Spotify primero.'
+                  function: 'reproducir mÃºsica',
+                  error: 'Spotify no estÃ¡ conectado. Por favor conecta tu cuenta de Spotify primero.'
                 });
               } else {
                 const playResult = await session.spotifyService.play();
                 functionResults.push({
-                  function: 'reproducir música',
-                  details: playResult.message || 'Música reproduciendo'
+                  function: 'reproducir mÃºsica',
+                  details: playResult.message || 'MÃºsica reproduciendo'
                 });
               }
               break;
@@ -1245,14 +1249,14 @@ async function handleTextMessage(session, payload) {
             case 'spotify_pause':
               if (!session.spotifyService) {
                 functionResults.push({
-                  function: 'pausar música',
-                  error: 'Spotify no está conectado.'
+                  function: 'pausar mÃºsica',
+                  error: 'Spotify no estÃ¡ conectado.'
                 });
               } else {
                 const pauseResult = await session.spotifyService.pause();
                 functionResults.push({
-                  function: 'pausar música',
-                  details: pauseResult.message || 'Música pausada'
+                  function: 'pausar mÃºsica',
+                  details: pauseResult.message || 'MÃºsica pausada'
                 });
               }
               break;
@@ -1260,14 +1264,14 @@ async function handleTextMessage(session, payload) {
             case 'spotify_next':
               if (!session.spotifyService) {
                 functionResults.push({
-                  function: 'siguiente canción',
-                  error: 'Spotify no está conectado.'
+                  function: 'siguiente canciÃ³n',
+                  error: 'Spotify no estÃ¡ conectado.'
                 });
               } else {
                 const nextResult = await session.spotifyService.next();
                 functionResults.push({
-                  function: 'siguiente canción',
-                  details: nextResult.message || 'Siguiente canción'
+                  function: 'siguiente canciÃ³n',
+                  details: nextResult.message || 'Siguiente canciÃ³n'
                 });
               }
               break;
@@ -1275,14 +1279,14 @@ async function handleTextMessage(session, payload) {
             case 'spotify_previous':
               if (!session.spotifyService) {
                 functionResults.push({
-                  function: 'canción anterior',
-                  error: 'Spotify no está conectado.'
+                  function: 'canciÃ³n anterior',
+                  error: 'Spotify no estÃ¡ conectado.'
                 });
               } else {
                 const prevResult = await session.spotifyService.previous();
                 functionResults.push({
-                  function: 'canción anterior',
-                  details: prevResult.message || 'Canción anterior'
+                  function: 'canciÃ³n anterior',
+                  details: prevResult.message || 'CanciÃ³n anterior'
                 });
               }
               break;
@@ -1291,7 +1295,7 @@ async function handleTextMessage(session, payload) {
               if (!session.spotifyService) {
                 functionResults.push({
                   function: 'ajustar volumen',
-                  error: 'Spotify no está conectado.'
+                  error: 'Spotify no estÃ¡ conectado.'
                 });
               } else {
                 const volResult = await session.spotifyService.setVolume(functionArgs.volume);
@@ -1305,15 +1309,15 @@ async function handleTextMessage(session, payload) {
             case 'spotify_play_for_activity':
               if (!session.spotifyService) {
                 functionResults.push({
-                  function: 'música para actividad',
-                  error: 'Spotify no está conectado.'
+                  function: 'mÃºsica para actividad',
+                  error: 'Spotify no estÃ¡ conectado.'
                 });
               } else {
                 const activityResult = await session.spotifyService.playForActivity(functionArgs.activity);
                 functionResults.push({
-                  function: 'música para actividad',
+                  function: 'mÃºsica para actividad',
                   details: activityResult.success 
-                    ? `Reproduciendo música para ${functionArgs.activity}: ${activityResult.playlist}`
+                    ? `Reproduciendo mÃºsica para ${functionArgs.activity}: ${activityResult.playlist}`
                     : activityResult.message
                 });
               }
@@ -1322,20 +1326,20 @@ async function handleTextMessage(session, payload) {
             case 'spotify_current_track':
               if (!session.spotifyService) {
                 functionResults.push({
-                  function: 'canción actual',
-                  error: 'Spotify no está conectado.'
+                  function: 'canciÃ³n actual',
+                  error: 'Spotify no estÃ¡ conectado.'
                 });
               } else {
                 const currentPlayback = await session.spotifyService.getCurrentPlayback();
                 if (currentPlayback && currentPlayback.track) {
                   functionResults.push({
-                    function: 'canción actual',
-                    details: `Sonando: "${currentPlayback.track.name}" por ${currentPlayback.track.artist} del álbum "${currentPlayback.track.album}"`
+                    function: 'canciÃ³n actual',
+                    details: `Sonando: "${currentPlayback.track.name}" por ${currentPlayback.track.artist} del Ã¡lbum "${currentPlayback.track.album}"`
                   });
                 } else {
                   functionResults.push({
-                    function: 'canción actual',
-                    details: 'No hay música reproduciéndose actualmente'
+                    function: 'canciÃ³n actual',
+                    details: 'No hay mÃºsica reproduciÃ©ndose actualmente'
                   });
                 }
               }
@@ -1344,8 +1348,8 @@ async function handleTextMessage(session, payload) {
             case 'spotify_search':
               if (!session.spotifyService) {
                 functionResults.push({
-                  function: 'buscar música',
-                  error: 'Spotify no está conectado.'
+                  function: 'buscar mÃºsica',
+                  error: 'Spotify no estÃ¡ conectado.'
                 });
               } else {
                 const searchType = functionArgs.type || 'track';
@@ -1363,8 +1367,8 @@ async function handleTextMessage(session, payload) {
                   });
                 } else {
                   functionResults.push({
-                    function: 'buscar música',
-                    details: `No encontré "${functionArgs.query}"`
+                    function: 'buscar mÃºsica',
+                    details: `No encontrÃ© "${functionArgs.query}"`
                   });
                 }
               }
@@ -1377,7 +1381,7 @@ async function handleTextMessage(session, payload) {
               if (!service) {
                 functionResults.push({
                   function: `obtener tareas de ${platform}`,
-                  error: `${platform.charAt(0).toUpperCase() + platform.slice(1)} no está conectado.`
+                  error: `${platform.charAt(0).toUpperCase() + platform.slice(1)} no estÃ¡ conectado.`
                 });
               } else {
                 const tasks = await service.getTasks();
@@ -1396,7 +1400,7 @@ async function handleTextMessage(session, payload) {
               if (!createService) {
                 functionResults.push({
                   function: `crear tarea en ${createPlatform}`,
-                  error: `${createPlatform.charAt(0).toUpperCase() + createPlatform.slice(1)} no está conectado.`
+                  error: `${createPlatform.charAt(0).toUpperCase() + createPlatform.slice(1)} no estÃ¡ conectado.`
                 });
               } else {
                 const created = await createService.createTask({
@@ -1420,7 +1424,7 @@ async function handleTextMessage(session, payload) {
               if (!fromService || !toService) {
                 functionResults.push({
                   function: 'sincronizar tareas',
-                  error: 'Una o ambas plataformas no están conectadas.'
+                  error: 'Una o ambas plataformas no estÃ¡n conectadas.'
                 });
               } else {
                 const syncResult = await fromService.syncTasks(fromPlatform, toPlatform);
@@ -1442,7 +1446,7 @@ async function handleTextMessage(session, payload) {
                 const query = functionArgs.onlyUnread !== false ? 'is:unread' : '';
                 const emails = await session.emailService.getRecentEmails(maxResults, query);
                 
-                // Guardar emails en sesión para referencias posteriores
+                // Guardar emails en sesiÃ³n para referencias posteriores
                 session.lastEmails = emails;
                 
                 let emailList = `Tienes ${emails.length} email(s):\n\n`;
@@ -1480,7 +1484,7 @@ async function handleTextMessage(session, payload) {
             case 'email_mark_read':
               if (!session.emailService || !session.lastEmails) {
                 functionResults.push({
-                  function: 'marcar como leído',
+                  function: 'marcar como leÃ­do',
                   error: 'No hay emails cargados.'
                 });
               } else {
@@ -1489,13 +1493,13 @@ async function handleTextMessage(session, payload) {
                   const email = session.lastEmails[emailIndex];
                   await session.emailService.markAsRead(email.id);
                   functionResults.push({
-                    function: 'marcar como leído',
-                    details: `Email "${email.subject}" marcado como leído`
+                    function: 'marcar como leÃ­do',
+                    details: `Email "${email.subject}" marcado como leÃ­do`
                   });
                 } else {
                   functionResults.push({
-                    function: 'marcar como leído',
-                    error: 'Índice de email inválido'
+                    function: 'marcar como leÃ­do',
+                    error: 'Ãndice de email invÃ¡lido'
                   });
                 }
               }
@@ -1542,14 +1546,14 @@ async function handleTextMessage(session, payload) {
             case 'learning_get_stats':
               if (!session.learningService) {
                 functionResults.push({
-                  function: 'estadísticas de aprendizaje',
+                  function: 'estadÃ­sticas de aprendizaje',
                   error: 'Servicio de aprendizaje no disponible.'
                 });
               } else {
                 const stats = session.learningService.getLearningStats();
                 const formatted = session.learningService.formatStats(stats);
                 functionResults.push({
-                  function: 'estadísticas de aprendizaje',
+                  function: 'estadÃ­sticas de aprendizaje',
                   details: formatted
                 });
               }
@@ -1587,7 +1591,7 @@ async function handleTextMessage(session, payload) {
                 if (flashcards.length === 0) {
                   functionResults.push({
                     function: 'revisar flashcards',
-                    details: 'No tienes flashcards pendientes de revisar. ¡Buen trabajo!'
+                    details: 'No tienes flashcards pendientes de revisar. Â¡Buen trabajo!'
                   });
                 } else {
                   let reviewText = `Tienes ${flashcards.length} flashcard(s) para revisar:\n\n`;
@@ -1603,7 +1607,7 @@ async function handleTextMessage(session, payload) {
               break;
               
             default:
-              result = { error: 'Función no reconocida' };
+              result = { error: 'FunciÃ³n no reconocida' };
           }
           
           sendToClient(session.ws, {
@@ -1631,16 +1635,16 @@ async function handleTextMessage(session, payload) {
       }
     }
     
-    // Generar respuesta más descriptiva
+    // Generar respuesta mÃ¡s descriptiva
     responseText = responseMessage.content;
     
     // Si hubo function calls y no hay respuesta, hacer segunda llamada a GPT con los resultados
     if (!responseText && functionResults.length > 0) {
-      const hasWebSearch = functionResults.some(r => r.function === 'búsqueda web');
+      const hasWebSearch = functionResults.some(r => r.function === 'bÃºsqueda web');
       
-      // Para búsquedas web, hacer segunda llamada a GPT para procesar resultados
+      // Para bÃºsquedas web, hacer segunda llamada a GPT para procesar resultados
       if (hasWebSearch) {
-        const searchResults = functionResults.find(r => r.function === 'búsqueda web');
+        const searchResults = functionResults.find(r => r.function === 'bÃºsqueda web');
         
         const secondCompletion = await openai.chat.completions.create({
           model: 'gpt-4o',
@@ -1648,9 +1652,9 @@ async function handleTextMessage(session, payload) {
             {
               role: 'system',
               content: `Eres GBot, un asistente personal inteligente. 
-              Responde de forma natural, clara y concisa en español.
-              Usa la información de búsqueda web para responder la pregunta del usuario.
-              NO copies el formato crudo de los resultados. Procesa la información y responde naturalmente.`
+              Responde de forma natural, clara y concisa en espaÃ±ol.
+              Usa la informaciÃ³n de bÃºsqueda web para responder la pregunta del usuario.
+              NO copies el formato crudo de los resultados. Procesa la informaciÃ³n y responde naturalmente.`
             },
             {
               role: 'user',
@@ -1673,23 +1677,23 @@ async function handleTextMessage(session, payload) {
         
         responseText = secondCompletion.choices[0].message.content;
       } else {
-        // Para otras funciones, usar lógica anterior
+        // Para otras funciones, usar lÃ³gica anterior
         const successResults = functionResults.filter(r => !r.error);
         const errorResults = functionResults.filter(r => r.error);
         
         if (successResults.length > 0 && errorResults.length === 0) {
-          responseText = '¡Listo! ';
+          responseText = 'Â¡Listo! ';
           responseText += successResults.map(r => `He ${r.function === 'crear evento' || r.function === 'crear tarea' ? 'creado' : 'listado'} ${r.details}`).join('. ');
         } else if (errorResults.length > 0 && successResults.length === 0) {
           responseText = 'Lo siento, hubo un problema: ' + errorResults.map(r => r.error).join('. ');
         } else if (errorResults.length > 0 && successResults.length > 0) {
-          responseText = 'Completé algunas acciones pero hubo problemas: ' + errorResults.map(r => r.error).join('. ');
+          responseText = 'CompletÃ© algunas acciones pero hubo problemas: ' + errorResults.map(r => r.error).join('. ');
         } else {
           responseText = 'Hubo un problema al ejecutar las acciones solicitadas.';
         }
       }
     } else if (!responseText) {
-      responseText = 'He ejecutado la acción solicitada.';
+      responseText = 'He ejecutado la acciÃ³n solicitada.';
     }
 
     const normalizedResponse = (responseText || '').trim().toLowerCase();
@@ -1719,7 +1723,7 @@ async function handleTextMessage(session, payload) {
       id: `${messageId}-response`
     });
     
-    // Guardar conversación en memoria persistente
+    // Guardar conversaciÃ³n en memoria persistente
     try {
       const { memoryService } = await import('../services/memoryService.js');
       await memoryService.saveConversation(session.userId, session.conversationHistory);
@@ -1757,11 +1761,11 @@ async function handleTextMessage(session, payload) {
       // Continuar sin audio si falla
     }
 
-    // El estado cambiará a idle cuando termine de reproducir el audio
+    // El estado cambiarÃ¡ a idle cuando termine de reproducir el audio
     // Por ahora, esperar un tiempo estimado
     setTimeout(() => {
       session.stateMachine.transition('idle');
-    }, responseText.length * 50); // ~50ms por carácter
+    }, responseText.length * 50); // ~50ms por carÃ¡cter
 
   } catch (error) {
     logger.error('Error generating response:', error);
@@ -1776,7 +1780,7 @@ async function handleTextMessage(session, payload) {
     // Enviar respuesta de texto simple si falla
     sendToClient(session.ws, {
       type: 'response',
-      text: 'Lo siento, tuve un problema al procesar tu mensaje. ¿Puedes intentarlo de nuevo?'
+      text: 'Lo siento, tuve un problema al procesar tu mensaje. Â¿Puedes intentarlo de nuevo?'
     });
     
     session.stateMachine.transition('idle');
@@ -1784,7 +1788,7 @@ async function handleTextMessage(session, payload) {
 }
 
 async function executeFunctionCall(session, functionCall) {
-  // Aquí se ejecutarían las llamadas a Google Calendar/Tasks
+  // AquÃ­ se ejecutarÃ­an las llamadas a Google Calendar/Tasks
   // Importar los servicios correspondientes
   logger.info(`Executing function: ${functionCall.name}`, functionCall.arguments);
 
@@ -1805,8 +1809,8 @@ function startAutonomousBehavior(session) {
       return;
     }
 
-    // Aquí se implementaría la lógica de comportamiento autónomo
-    // Por ejemplo: revisar eventos próximos, sugerir tareas, etc.
+    // AquÃ­ se implementarÃ­a la lÃ³gica de comportamiento autÃ³nomo
+    // Por ejemplo: revisar eventos prÃ³ximos, sugerir tareas, etc.
     
   }, checkInterval);
 }
@@ -1838,13 +1842,13 @@ async function processAudioWithWhisper(session) {
     // Convertir base64 a buffer
     const audioBuffer = Buffer.from(audioData, 'base64');
 
-    // Rechazar audio demasiado corto o probablemente vacío
+    // Rechazar audio demasiado corto o probablemente vacÃ­o
     if (!audioBuffer || audioBuffer.length < 10000) { // ~10KB ~ <0.5s
       logger.warn('Audio too short, skipping transcription');
       sendToClient(session.ws, {
         type: 'notice',
         level: 'info',
-        message: 'No te escuché bien. ¿Puedes repetir, por favor?'
+        message: 'No te escuchÃ© bien. Â¿Puedes repetir, por favor?'
       });
       session.stateMachine.transition('idle');
       session.audioBuffer = [];
@@ -1853,7 +1857,7 @@ async function processAudioWithWhisper(session) {
     
     logger.info(`Audio buffer size: ${audioBuffer.length} bytes`);
     
-    // Guardar temporalmente el archivo con extensión webm
+    // Guardar temporalmente el archivo con extensiÃ³n webm
     const tempDir = os.tmpdir();
     const tempFile = path.join(tempDir, `audio_${session.id}_${Date.now()}.webm`);
     
@@ -1870,13 +1874,13 @@ async function processAudioWithWhisper(session) {
         model: 'whisper-1',
         language: 'es',
         response_format: 'text',
-        prompt: 'Transcripción en español de una conversación casual.'
+        prompt: 'TranscripciÃ³n en espaÃ±ol de una conversaciÃ³n casual.'
       });
       
       logger.info(`Transcription: ${transcription}`);
 
-      // Filtro de ruido: descartar transcripciones sospechosas o vacías
-      const noisyPatterns = /(amara\.org|subt[íi]tulos|suscr[íi]bete|dale\s+like|m[aá]s\s+informaci[óo]n|www\.|https?:\/\/|like\s+and\s+share|s[íi]guenos|canal|youtube)/i;
+      // Filtro de ruido: descartar transcripciones sospechosas o vacÃ­as
+      const noisyPatterns = /(amara\.org|subt[Ã­i]tulos|suscr[Ã­i]bete|dale\s+like|m[aÃ¡]s\s+informaci[Ã³o]n|www\.|https?:\/\/|like\s+and\s+share|s[Ã­i]guenos|canal|youtube)/i;
       const cleaned = (transcription || '').trim();
       const tooShort = cleaned.length < 3;
       const isNoisy = noisyPatterns.test(cleaned);
@@ -1886,7 +1890,7 @@ async function processAudioWithWhisper(session) {
         sendToClient(session.ws, {
           type: 'notice',
           level: 'info',
-          message: 'No te escuché bien. ¿Puedes repetir, por favor?'
+          message: 'No te escuchÃ© bien. Â¿Puedes repetir, por favor?'
         });
         session.stateMachine.transition('idle');
         return;
@@ -1940,3 +1944,5 @@ function isSessionTokenExpired(session) {
 }
 
 export { sessions };
+
+

@@ -1,8 +1,8 @@
-import { logger } from '../utils/logger.js';
+﻿import { logger } from '../utils/logger.js';
 
 /**
  * Sistema de comportamiento proactivo para GBot
- * Hace que el bot sea más "vivo" e interactivo
+ * Hace que el bot sea mÃ¡s "vivo" e interactivo
  */
 export class ProactiveBehavior {
   constructor(session, services = {}) {
@@ -21,6 +21,11 @@ export class ProactiveBehavior {
     };
   }
 
+  hasRecentUserActivity(windowMs = 8000) {
+    const lastUserMessage = this.session?.lastUserMessageAt || 0;
+    return lastUserMessage > 0 && Date.now() - lastUserMessage < windowMs;
+  }
+
   /**
    * Inicia el comportamiento proactivo
    */
@@ -28,12 +33,12 @@ export class ProactiveBehavior {
     // Saludo inicial basado en la hora (solo una vez)
     setTimeout(() => {
       this.sendGreeting();
-    }, 1000); // Esperar 1 segundo después de conectar
+    }, 1000); // Esperar 1 segundo despuÃ©s de conectar
 
     // Revisar tareas pendientes cada 30 minutos
     this.scheduleTaskCheck(30 * 60 * 1000);
 
-    // Recordatorios de eventos próximos
+    // Recordatorios de eventos prÃ³ximos
     this.scheduleEventReminders(15 * 60 * 1000);
 
     // Animaciones de idle aleatorias
@@ -58,14 +63,20 @@ export class ProactiveBehavior {
   }
 
   /**
-   * Envía un saludo basado en la hora del día
+   * EnvÃ­a un saludo basado en la hora del dÃ­a
    */
   sendGreeting() {
-    // Solo saludar una vez por sesión
+    // Solo saludar una vez por sesiÃ³n
     if (this.hasGreeted) {
       return;
     }
     
+    if (this.hasRecentUserActivity(6000)) {
+      this.hasGreeted = true;
+      logger.info('Skipping proactive greeting due to recent user activity');
+      return;
+    }
+
     this.hasGreeted = true;
     
     const hour = new Date().getHours();
@@ -73,13 +84,13 @@ export class ProactiveBehavior {
     let emotion = 'happy';
 
     if (hour >= 5 && hour < 12) {
-      greeting = '¡Buenos días! ☀️ ¿Listo para un día productivo?';
+      greeting = 'Â¡Buenos dÃ­as! â˜€ï¸ Â¿Listo para un dÃ­a productivo?';
     } else if (hour >= 12 && hour < 18) {
-      greeting = '¡Buenas tardes! 😊 ¿En qué puedo ayudarte hoy?';
+      greeting = 'Â¡Buenas tardes! ðŸ˜Š Â¿En quÃ© puedo ayudarte hoy?';
     } else if (hour >= 18 && hour < 22) {
-      greeting = '¡Buenas noches! 🌙 ¿Cómo estuvo tu día?';
+      greeting = 'Â¡Buenas noches! ðŸŒ™ Â¿CÃ³mo estuvo tu dÃ­a?';
     } else {
-      greeting = '¡Hola! 🌟 Trabajando hasta tarde, ¿eh? Estoy aquí para ayudarte.';
+      greeting = 'Â¡Hola! ðŸŒŸ Trabajando hasta tarde, Â¿eh? Estoy aquÃ­ para ayudarte.';
       emotion = 'idle';
     }
 
@@ -87,7 +98,7 @@ export class ProactiveBehavior {
   }
 
   /**
-   * Revisa tareas pendientes y envía recordatorios
+   * Revisa tareas pendientes y envÃ­a recordatorios
    */
   async scheduleTaskCheck(interval) {
     const checkTasks = async () => {
@@ -121,12 +132,12 @@ export class ProactiveBehavior {
 
         if (overdueTasks.length > 0) {
           this.sendProactiveMessage(
-            `⚠️ Tienes ${overdueTasks.length} tarea${overdueTasks.length > 1 ? 's' : ''} atrasada${overdueTasks.length > 1 ? 's' : ''}. ¿Quieres que te ayude a organizarlas?`,
+            `âš ï¸ Tienes ${overdueTasks.length} tarea${overdueTasks.length > 1 ? 's' : ''} atrasada${overdueTasks.length > 1 ? 's' : ''}. Â¿Quieres que te ayude a organizarlas?`,
             'confused'
           );
         } else if (todayTasks.length > 0) {
           this.sendProactiveMessage(
-            `📋 Tienes ${todayTasks.length} tarea${todayTasks.length > 1 ? 's' : ''} para hoy. ¡Vamos a completarlas!`,
+            `ðŸ“‹ Tienes ${todayTasks.length} tarea${todayTasks.length > 1 ? 's' : ''} para hoy. Â¡Vamos a completarlas!`,
             'excited'
           );
         }
@@ -134,18 +145,18 @@ export class ProactiveBehavior {
         logger.error('Error checking tasks:', error);
       }
 
-      // Programar siguiente revisión
+      // Programar siguiente revisiÃ³n
       const timer = setTimeout(checkTasks, interval);
       this.timers.push(timer);
     };
 
-    // Primera revisión después de 5 minutos
+    // Primera revisiÃ³n despuÃ©s de 5 minutos
     const timer = setTimeout(checkTasks, 5 * 60 * 1000);
     this.timers.push(timer);
   }
 
   /**
-   * Programa recordatorios de eventos próximos
+   * Programa recordatorios de eventos prÃ³ximos
    */
   async scheduleEventReminders(interval) {
     const checkEvents = async () => {
@@ -157,7 +168,7 @@ export class ProactiveBehavior {
         const now = new Date();
         const in30Minutes = new Date(now.getTime() + 30 * 60 * 1000);
 
-        // Eventos en los próximos 30 minutos
+        // Eventos en los prÃ³ximos 30 minutos
         const upcomingEvents = events.filter(event => {
           if (!event.start) return false;
           const eventStart = new Date(event.start);
@@ -168,7 +179,7 @@ export class ProactiveBehavior {
           const event = upcomingEvents[0];
           const minutesUntil = Math.round((new Date(event.start) - now) / 60000);
           this.sendProactiveMessage(
-            `⏰ Recordatorio: "${event.summary}" en ${minutesUntil} minutos`,
+            `â° Recordatorio: "${event.summary}" en ${minutesUntil} minutos`,
             'excited'
           );
         }
@@ -176,12 +187,12 @@ export class ProactiveBehavior {
         logger.error('Error checking events:', error);
       }
 
-      // Programar siguiente revisión
+      // Programar siguiente revisiÃ³n
       const timer = setTimeout(checkEvents, interval);
       this.timers.push(timer);
     };
 
-    // Primera revisión después de 2 minutos
+    // Primera revisiÃ³n despuÃ©s de 2 minutos
     const timer = setTimeout(checkEvents, 2 * 60 * 1000);
     this.timers.push(timer);
   }
@@ -193,7 +204,7 @@ export class ProactiveBehavior {
     const sendIdleAnimation = () => {
       const timeSinceLastInteraction = Date.now() - this.lastInteraction;
       
-      // Solo si no ha habido interacción en los últimos 30 segundos
+      // Solo si no ha habido interacciÃ³n en los Ãºltimos 30 segundos
       if (timeSinceLastInteraction > 30000) {
         const animations = [
           { type: 'look_around', emotion: 'idle' },
@@ -211,8 +222,8 @@ export class ProactiveBehavior {
         });
       }
 
-      // Programar siguiente animación
-      const nextInterval = interval + Math.random() * 10000; // Variación aleatoria
+      // Programar siguiente animaciÃ³n
+      const nextInterval = interval + Math.random() * 10000; // VariaciÃ³n aleatoria
       const timer = setTimeout(sendIdleAnimation, nextInterval);
       this.timers.push(timer);
     };
@@ -233,10 +244,10 @@ export class ProactiveBehavior {
           hour < this.userPreferences.workHoursEnd) {
         
         const messages = [
-          '☕ ¿Qué tal un descanso? Has estado trabajando mucho.',
-          '🧘 Recuerda tomar un respiro. Tu salud es importante.',
-          '💧 ¿Ya tomaste agua? Mantente hidratado.',
-          '👀 Descansa la vista un momento. Mira algo lejos de la pantalla.'
+          'â˜• Â¿QuÃ© tal un descanso? Has estado trabajando mucho.',
+          'ðŸ§˜ Recuerda tomar un respiro. Tu salud es importante.',
+          'ðŸ’§ Â¿Ya tomaste agua? Mantente hidratado.',
+          'ðŸ‘€ Descansa la vista un momento. Mira algo lejos de la pantalla.'
         ];
 
         const message = messages[Math.floor(Math.random() * messages.length)];
@@ -257,10 +268,10 @@ export class ProactiveBehavior {
    */
   celebrateCompletion(taskName) {
     const celebrations = [
-      `🎉 ¡Genial! Completaste "${taskName}". ¡Sigue así!`,
-      `✨ ¡Bien hecho! Una tarea menos. ¡Eres increíble!`,
-      `🌟 ¡Excelente! "${taskName}" completada. ¡Vamos por más!`,
-      `🎊 ¡Bravo! Cada tarea completada es un paso hacia tus metas.`
+      `ðŸŽ‰ Â¡Genial! Completaste "${taskName}". Â¡Sigue asÃ­!`,
+      `âœ¨ Â¡Bien hecho! Una tarea menos. Â¡Eres increÃ­ble!`,
+      `ðŸŒŸ Â¡Excelente! "${taskName}" completada. Â¡Vamos por mÃ¡s!`,
+      `ðŸŽŠ Â¡Bravo! Cada tarea completada es un paso hacia tus metas.`
     ];
 
     const message = celebrations[Math.floor(Math.random() * celebrations.length)];
@@ -276,14 +287,14 @@ export class ProactiveBehavior {
     switch (action) {
       case 'task_created':
         this.sendProactiveMessage(
-          `📝 ¡Perfecto! Agregué "${context.taskName}" a tu lista. ¡No te preocupes, te recordaré!`,
+          `ðŸ“ Â¡Perfecto! AgreguÃ© "${context.taskName}" a tu lista. Â¡No te preocupes, te recordarÃ©!`,
           'happy'
         );
         break;
 
       case 'event_created':
         this.sendProactiveMessage(
-          `📅 ¡Listo! "${context.eventName}" está en tu calendario. Te avisaré antes.`,
+          `ðŸ“… Â¡Listo! "${context.eventName}" estÃ¡ en tu calendario. Te avisarÃ© antes.`,
           'excited'
         );
         break;
@@ -291,7 +302,7 @@ export class ProactiveBehavior {
       case 'multiple_tasks':
         if (context.count > 5) {
           this.sendProactiveMessage(
-            `😮 ¡Wow! Tienes ${context.count} tareas. ¿Quieres que te ayude a priorizarlas?`,
+            `ðŸ˜® Â¡Wow! Tienes ${context.count} tareas. Â¿Quieres que te ayude a priorizarlas?`,
             'confused'
           );
         }
@@ -299,14 +310,14 @@ export class ProactiveBehavior {
 
       case 'no_tasks':
         this.sendProactiveMessage(
-          `🎈 ¡Increíble! No tienes tareas pendientes. ¡Disfruta tu tiempo libre!`,
+          `ðŸŽˆ Â¡IncreÃ­ble! No tienes tareas pendientes. Â¡Disfruta tu tiempo libre!`,
           'excited'
         );
         break;
 
       case 'long_session':
         this.sendProactiveMessage(
-          `💪 Llevas mucho tiempo trabajando. ¡Eres muy dedicado! Pero recuerda descansar.`,
+          `ðŸ’ª Llevas mucho tiempo trabajando. Â¡Eres muy dedicado! Pero recuerda descansar.`,
           'happy'
         );
         break;
@@ -314,9 +325,14 @@ export class ProactiveBehavior {
   }
 
   /**
-   * Envía un mensaje proactivo al usuario
+   * EnvÃ­a un mensaje proactivo al usuario
    */
   sendProactiveMessage(message, emotion = 'happy') {
+    if (this.hasRecentUserActivity()) {
+      logger.info('Skipping proactive message due to recent user activity');
+      return;
+    }
+
     this.sendToClient({
       type: 'proactive_message',
       message,
@@ -326,7 +342,7 @@ export class ProactiveBehavior {
   }
 
   /**
-   * Envía un mensaje al cliente WebSocket
+   * EnvÃ­a un mensaje al cliente WebSocket
    */
   sendToClient(data) {
     if (this.session.ws && this.session.ws.readyState === 1) {
@@ -357,7 +373,7 @@ export class ProactiveBehavior {
         predictions.forEach(prediction => {
           this.sendProactiveMessage(prediction.message, 'excited');
           
-          // Enviar también los datos de la acción sugerida
+          // Enviar tambiÃ©n los datos de la acciÃ³n sugerida
           this.sendToClient({
             type: 'prediction',
             prediction: prediction.type,
@@ -371,13 +387,14 @@ export class ProactiveBehavior {
         logger.error('Error checking predictions:', error);
       }
 
-      // Programar siguiente revisión
+      // Programar siguiente revisiÃ³n
       const timer = setTimeout(checkPredictions, interval);
       this.timers.push(timer);
     };
 
-    // Primera revisión después de 10 minutos
+    // Primera revisiÃ³n despuÃ©s de 10 minutos
     const timer = setTimeout(checkPredictions, 10 * 60 * 1000);
     this.timers.push(timer);
   }
 }
+
