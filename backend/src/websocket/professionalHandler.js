@@ -1,4 +1,4 @@
-﻿import { logger } from '../utils/logger.js';
+import { logger } from '../utils/logger.js';
 import OpenAI from 'openai';
 
 /**
@@ -319,17 +319,6 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
         timestamp: Date.now()
       });
       return false;
-    }
-  }
-
-    } catch (error) {
-      logger.error('Error handling message:', error);
-      
-      this.sendToClient({
-        type: 'error',
-        message: 'Error interno del servidor',
-        timestamp: Date.now()
-      });
     }
   }
 
