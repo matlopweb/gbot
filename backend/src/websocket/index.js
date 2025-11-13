@@ -48,7 +48,8 @@ export function setupWebSocket(wss) {
       learningService: null,
       contextualMemory: new ContextualMemory(userId), // Sistema de memoria
       conversationHistory: [], // Historial de conversación
-      lastGreetingAt: 0
+      lastGreetingAt: 0,
+      processedMessageIds: new Set()
     };
     bindSessionToken(session, token);
 
@@ -198,7 +199,7 @@ async function handleClientMessage(session, message) {
       break;
 
     case 'text_message':
-      await handleTextMessage(session, message.text);
+      await handleTextMessage(session, message);
       break;
 
     case 'stop_realtime':
@@ -270,7 +271,24 @@ async function startRealtimeSession(session, config = {}) {
   await session.openaiSession.connect();
 }
 
-async function handleTextMessage(session, text) {
+async function handleTextMessage(session, payload) {
+  const text = payload?.text || '';
+  const messageId = payload?.id || `msg_${Date.now()}`;
+
+  if (!session.processedMessageIds) {
+    session.processedMessageIds = new Set();
+  }
+
+  if (session.processedMessageIds.has(messageId)) {
+    logger.warn('Duplicate text message ignored', { messageId });
+    return;
+  }
+  session.processedMessageIds.add(messageId);
+  if (session.processedMessageIds.size > 1000) {
+    const first = session.processedMessageIds.values().next().value;
+    if (first) session.processedMessageIds.delete(first);
+  }
+
   session.stateMachine.transition('thinking');
 
   // Supresión de saludos repetidos
@@ -293,7 +311,8 @@ async function handleTextMessage(session, text) {
   session.conversationHistory.push({
     role: 'user',
     content: text,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    id: messageId
   });
   
   // Aprender de la interacción
@@ -1696,7 +1715,8 @@ async function handleTextMessage(session, text) {
     session.conversationHistory.push({
       role: 'assistant',
       content: responseText,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      id: `${messageId}-response`
     });
     
     // Guardar conversación en memoria persistente

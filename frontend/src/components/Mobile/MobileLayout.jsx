@@ -74,9 +74,9 @@ export function MobileLayout() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="h-full"
+              className="h-full flex flex-col p-3"
             >
-              <ChatInterface />
+              <ChatInterface className="h-full" />
             </motion.div>
           )}
 

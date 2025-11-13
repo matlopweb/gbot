@@ -56,7 +56,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen p-4">
-      <div className="max-w-7xl mx-auto mb-8">
+      <div className="max-w-6xl mx-auto mb-6">
         <div className="flex justify-between items-center glass rounded-2xl p-4">
           <div className="flex items-center gap-3">
             <div>
@@ -90,15 +90,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto grid gap-6 lg:grid-cols-12">
+      <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6">
         <motion.div
-          className="lg:col-span-4"
+          className="lg:w-1/3"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="card h-full flex flex-col items-center justify-center p-6 lg:p-8">
-            <div className="flex flex-col items-center gap-6 lg:gap-8">
+          <div className="card h-full flex flex-col items-center justify-center p-6">
+            <div className="flex flex-col items-center gap-6">
               <BotFace />
               <VoiceControl />
             </div>
@@ -109,12 +109,14 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div
-          className="lg:col-span-8"
+          className="lg:flex-1"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <ChatInterface />
+          <div className="h-[72vh] lg:h-[620px]">
+            <ChatInterface className="h-full" />
+          </div>
         </motion.div>
       </div>
 

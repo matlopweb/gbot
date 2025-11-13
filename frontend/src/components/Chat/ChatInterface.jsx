@@ -5,7 +5,7 @@ import { Send, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 
-export default function ChatInterface() {
+export default function ChatInterface({ className = '' }) {
   const { messages, currentTranscript, state } = useBotStore();
   const { send } = useWebSocket();
   const [input, setInput] = useState('');
@@ -22,14 +22,18 @@ export default function ChatInterface() {
   const handleSend = () => {
     if (!input.trim()) return;
 
+    const messageId = crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+
     send({
       type: 'text_message',
-      text: input
+      text: input,
+      id: messageId
     });
 
     useBotStore.getState().addMessage({
       role: 'user',
-      content: input
+      content: input,
+      id: messageId
     });
 
     setInput('');
@@ -43,7 +47,7 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="card h-[600px] flex flex-col">
+    <div className={`card flex flex-col h-full ${className}`}>
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <AnimatePresence>

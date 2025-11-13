@@ -39,7 +39,7 @@ export function ConversationHistory() {
       {/* Botón para abrir historial */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-6 bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg hover:shadow-xl transition-shadow border border-gray-200 dark:border-gray-700"
+        className="fixed bottom-28 right-6 z-40 bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg hover:shadow-xl transition-shadow border border-gray-200 dark:border-gray-700"
         title="Ver historial"
       >
         <svg 

@@ -71,13 +71,18 @@ export const useBotStore = create((set) => ({
     };
 
     set((state) => {
+      const exists = state.messages.some((msg) => msg.id === payload.id);
+      if (exists) {
+        return state;
+      }
+
       const newMessages = [...state.messages, payload];
       saveHistory(newMessages);
       return { messages: newMessages };
     });
 
     const token = useAuthStore.getState().token;
-    if (token) {
+    if (token && message.role !== 'system') {
       saveConversationMessage(token, payload).catch((error) => {
         console.error('Error syncing conversation message:', error);
       });
