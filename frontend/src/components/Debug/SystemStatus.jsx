@@ -28,6 +28,8 @@ export function SystemStatus() {
         hasSpeechRecognition: 'webkitSpeechRecognition' in window,
         hasSpeechSynthesis: 'speechSynthesis' in window,
         hasMediaDevices: 'mediaDevices' in navigator,
+        voicesCount: 'speechSynthesis' in window ? speechSynthesis.getVoices().length : 0,
+        hasSpanishVoice: 'speechSynthesis' in window ? speechSynthesis.getVoices().some(v => v.lang.includes('es')) : false,
         
         // Mensajes
         messageCount: messages.length,
@@ -60,6 +62,32 @@ export function SystemStatus() {
       text: 'Test de conexión desde debug',
       id: crypto.randomUUID()
     });
+  };
+
+  const testVoice = () => {
+    console.log('🎵 Testing voice...');
+    if ('speechSynthesis' in window) {
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance('Hola, esta es una prueba de voz');
+      utterance.lang = 'es-ES';
+      utterance.rate = 0.9;
+      
+      const voices = speechSynthesis.getVoices();
+      const spanishVoice = voices.find(v => v.lang.includes('es'));
+      if (spanishVoice) utterance.voice = spanishVoice;
+      
+      speechSynthesis.speak(utterance);
+    }
+  };
+
+  const loadVoices = () => {
+    console.log('🔄 Loading voices...');
+    if ('speechSynthesis' in window) {
+      speechSynthesis.getVoices();
+      speechSynthesis.onvoiceschanged = () => {
+        console.log('🎵 Voices reloaded');
+      };
+    }
   };
 
   const getStatusColor = (status) => {
@@ -134,6 +162,23 @@ export function SystemStatus() {
           </div>
           <div className={getStatusColor(systemInfo.hasMediaDevices)}>
             Media Devices: {systemInfo.hasMediaDevices ? '✓' : '✗'}
+          </div>
+          <div className="text-gray-300 text-xs">
+            Voices: {systemInfo.voicesCount} ({systemInfo.hasSpanishVoice ? 'Spanish ✓' : 'No Spanish ✗'})
+          </div>
+          <div className="flex gap-1 mt-1">
+            <button
+              onClick={loadVoices}
+              className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs"
+            >
+              Load Voices
+            </button>
+            <button
+              onClick={testVoice}
+              className="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs"
+            >
+              Test Voice
+            </button>
           </div>
         </div>
 

@@ -114,39 +114,91 @@ export function SimpleVoiceSystem() {
 
   // Hablar respuesta del bot
   const speakResponse = useCallback((text) => {
-    if (!text || !('speechSynthesis' in window)) return;
+    if (!text) return;
 
     console.log('🔊 Speaking:', text);
     setIsProcessing(false);
     setIsSpeaking(true);
 
+    // Verificar soporte
+    if (!('speechSynthesis' in window)) {
+      console.error('❌ Speech synthesis not supported');
+      setIsSpeaking(false);
+      return;
+    }
+
     // Cancelar speech anterior
     speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-ES';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 0.9;
+    // Función para hablar con reintentos
+    const attemptSpeech = () => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'es-ES';
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.9;
 
-    // Buscar voz en español
+      // Buscar voz en español con más opciones
+      const voices = speechSynthesis.getVoices();
+      console.log('🎵 Available voices:', voices.length);
+      
+      const spanishVoice = voices.find(voice => 
+        voice.lang.includes('es-ES') || 
+        voice.lang.includes('es-MX') || 
+        voice.lang.includes('es')
+      );
+      
+      if (spanishVoice) {
+        utterance.voice = spanishVoice;
+        console.log('🎵 Using voice:', spanishVoice.name);
+      } else {
+        console.log('⚠️ No Spanish voice found, using default');
+      }
+
+      utterance.onstart = () => {
+        console.log('🎵 Speech started');
+      };
+
+      utterance.onend = () => {
+        console.log('✅ Finished speaking');
+        setIsSpeaking(false);
+      };
+
+      utterance.onerror = (error) => {
+        console.error('❌ Speech error:', error);
+        setIsSpeaking(false);
+      };
+
+      try {
+        speechSynthesis.speak(utterance);
+        console.log('🎵 Speech synthesis started');
+      } catch (error) {
+        console.error('❌ Failed to start speech:', error);
+        setIsSpeaking(false);
+      }
+    };
+
+    // Si no hay voces cargadas, esperar y reintentar
     const voices = speechSynthesis.getVoices();
-    const spanishVoice = voices.find(voice => voice.lang.includes('es'));
-    if (spanishVoice) {
-      utterance.voice = spanishVoice;
+    if (voices.length === 0) {
+      console.log('⏳ Waiting for voices to load...');
+      speechSynthesis.onvoiceschanged = () => {
+        console.log('🎵 Voices loaded, attempting speech');
+        attemptSpeech();
+        speechSynthesis.onvoiceschanged = null;
+      };
+      
+      // Timeout de seguridad
+      setTimeout(() => {
+        if (speechSynthesis.onvoiceschanged) {
+          console.log('⏰ Voice loading timeout, attempting anyway');
+          speechSynthesis.onvoiceschanged = null;
+          attemptSpeech();
+        }
+      }, 2000);
+    } else {
+      attemptSpeech();
     }
-
-    utterance.onend = () => {
-      console.log('✅ Finished speaking');
-      setIsSpeaking(false);
-    };
-
-    utterance.onerror = () => {
-      console.error('❌ Speech error');
-      setIsSpeaking(false);
-    };
-
-    speechSynthesis.speak(utterance);
   }, []);
 
   // Escuchar respuestas del bot
