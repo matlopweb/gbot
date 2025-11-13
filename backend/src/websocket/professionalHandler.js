@@ -67,25 +67,36 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
    * Procesar mensaje de texto del usuario
    */
   async handleTextMessage(data) {
+    if (!data.text || typeof data.text !== 'string') {
+      logger.warn('Invalid text message received:', data);
+      return;
+    }
+
+    // Evitar procesar mensajes duplicados
+    if (this.isProcessing) {
+      logger.info('Already processing, queuing message');
+      this.messageQueue.push(data);
+      return;
+    }
+
+    this.isProcessing = true;
+    this.conversationState = 'processing';
+
     try {
-      logger.info(`Processing text message: "${data.text}"`);
+      logger.info(`🔄 Processing text message: "${data.text.substring(0, 100)}..."`);
       
-      if (!data.text || data.text.trim().length === 0) {
-        logger.warn('Empty message received, ignoring');
-        return;
+      // Verificar configuración de OpenAI
+      if (!this.openai) {
+        logger.error('❌ OpenAI client not initialized!');
+        throw new Error('OpenAI client not available');
+      }
+      
+      if (!process.env.OPENAI_API_KEY) {
+        logger.error('❌ OPENAI_API_KEY not found in environment!');
+        throw new Error('OpenAI API key not configured');
       }
 
-      this.session.lastUserMessageAt = Date.now();
-
-      // Validar que no estemos procesando ya
-      if (this.isProcessing) {
-        logger.warn('Already processing a message, queuing new message');
-        this.messageQueue.push(data);
-        return;
-      }
-
-      this.isProcessing = true;
-      this.conversationState = 'processing';
+      logger.info('✅ OpenAI client and API key verified');
 
       // Notificar que estamos procesando
       this.sendToClient({
@@ -173,10 +184,14 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
     const maxRetries = 3;
     let lastError;
 
+    logger.info(`🤖 Calling OpenAI with ${messages.length} messages`);
+    logger.info(`📋 Model: ${this.config.model}, Max tokens: ${this.config.maxTokens}`);
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        logger.info(`OpenAI API call attempt ${attempt}/${maxRetries}`);
+        logger.info(`🔄 OpenAI API call attempt ${attempt}/${maxRetries}`);
 
+        const startTime = Date.now();
         const completion = await this.openai.chat.completions.create({
           model: this.config.model,
           messages: messages,
@@ -184,6 +199,9 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
           temperature: this.config.temperature,
           stream: false
         });
+        
+        const duration = Date.now() - startTime;
+        logger.info(`⏱️ OpenAI API call completed in ${duration}ms`);
 
         const response = completion.choices[0]?.message?.content;
         
@@ -191,12 +209,17 @@ Recuerda: Eres el mejor asistente conversacional del mundo. Cada respuesta debe 
           throw new Error('No response content from OpenAI');
         }
 
-        logger.info(`OpenAI response received (${response.length} chars)`);
+        logger.info(`✅ OpenAI response received (${response.length} chars): "${response.substring(0, 100)}..."`);
         return response.trim();
 
       } catch (error) {
         lastError = error;
-        logger.error(`OpenAI API call attempt ${attempt} failed:`, error);
+        logger.error(`❌ OpenAI API call attempt ${attempt} failed:`, {
+          error: error.message,
+          status: error.status,
+          type: error.type,
+          code: error.code
+        });
 
         // Si es un error de rate limit, esperar mÃ¡s tiempo
         if (error.status === 429) {

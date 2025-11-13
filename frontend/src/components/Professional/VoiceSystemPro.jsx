@@ -304,6 +304,18 @@ export function VoiceSystemPro() {
         if (conversationState === 'processing') {
           log('warn', 'Processing timeout, returning to idle');
           setConversationState('idle');
+          
+          // Mostrar mensaje de error al usuario
+          addMessage({
+            role: 'assistant',
+            content: 'Disculpa, tuve un problema procesando tu mensaje. ¿Puedes repetir lo que dijiste?',
+            id: crypto.randomUUID(),
+            timestamp: Date.now(),
+            metadata: { 
+              source: 'timeout_error',
+              error: true 
+            }
+          });
         }
       }, 15000);
 

@@ -267,8 +267,20 @@ export function MobileVoiceSystem() {
         if (conversationState === 'processing') {
           log('warn', 'Mobile processing timeout, returning to idle');
           setConversationState('idle');
+          
+          // Mostrar mensaje de error al usuario
+          addMessage({
+            role: 'assistant',
+            content: 'Lo siento, tuve un problema procesando tu mensaje. ¿Puedes intentar de nuevo?',
+            id: crypto.randomUUID(),
+            timestamp: Date.now(),
+            metadata: { 
+              source: 'mobile_timeout',
+              error: true 
+            }
+          });
         }
-      }, 20000); // 20 segundos para móviles
+      }, 15000); // 15 segundos para móviles (reducido)
 
     } catch (error) {
       log('error', 'Failed to process mobile user speech', error);
