@@ -11,10 +11,14 @@ import { NaturalConversationFlow } from '../Bot/NaturalConversationFlow';
 import { IntelligentWelcome } from '../Bot/IntelligentWelcome';
 import { SystemStatus } from '../Debug/SystemStatus';
 import { SystemMonitor } from '../Professional/SystemMonitor';
+import { InnerWorldVisualization } from '../CognitiveCompanion/InnerWorldVisualization';
 
 export function RevolutionaryLayout() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [isReady, setIsReady] = useState(false);
+  const [showInnerWorld, setShowInnerWorld] = useState(false);
+  const [innerWorldData, setInnerWorldData] = useState(null);
+  const [companionData, setCompanionData] = useState(null);
   
   const { vitalStats, currentMood, friendship } = useAvatarLifeStore();
   const { isConnected } = useBotStore();
@@ -231,6 +235,24 @@ export function RevolutionaryLayout() {
       <IntelligentWelcome />
       <AdaptiveVoiceSystem />
       <NaturalConversationFlow />
+
+      {/* Botón Mundo Interior */}
+      <motion.button
+        onClick={() => setShowInnerWorld(!showInnerWorld)}
+        className="fixed top-4 left-4 z-40 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        🧠
+      </motion.button>
+
+      {/* Mundo Interior */}
+      <InnerWorldVisualization
+        innerWorld={innerWorldData}
+        companion={companionData}
+        isVisible={showInnerWorld}
+        onToggle={() => setShowInnerWorld(false)}
+      />
     </div>
   );
 }

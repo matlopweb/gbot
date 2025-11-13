@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger.js';
 import OpenAI from 'openai';
+import CognitiveCompanion from '../services/cognitiveCompanion.js';
 
 /**
  * Manejador Profesional de WebSocket
@@ -12,12 +13,12 @@ export class ProfessionalWebSocketHandler {
       apiKey: process.env.OPENAI_API_KEY
     });
     
-    // Estado de la conversaciÃ³n
+    // Estado de la conversación
     this.conversationState = 'idle'; // idle, processing, responding
     this.messageQueue = [];
     this.isProcessing = false;
     
-    // ConfiguraciÃ³n
+    // Configuración
     this.config = {
       model: 'gpt-4-turbo-preview',
       maxTokens: 1000,
@@ -25,7 +26,11 @@ export class ProfessionalWebSocketHandler {
       systemPrompt: this.getSystemPrompt()
     };
     
-    logger.info(`Professional handler initialized for session ${session.id}`);
+    // COMPAÑERO COGNITIVO - La revolución empieza aquí
+    this.cognitiveCompanion = null;
+    this.initializeCognitiveCompanion();
+    
+    logger.info(`Professional handler with Cognitive Companion initialized for session ${session.id}`);
   }
 
   /**
@@ -77,6 +82,85 @@ Recuerda: Eres un compañero humano inteligente, no un robot. Cada palabra debe 
   }
 
   /**
+   * 🧠 INICIALIZAR COMPAÑERO COGNITIVO
+   * Crear la personalidad única para este usuario
+   */
+  async initializeCognitiveCompanion() {
+    try {
+      if (!this.session.userId) {
+        logger.warn('No userId available for cognitive companion initialization');
+        return;
+      }
+
+      this.cognitiveCompanion = new CognitiveCompanion(this.session.userId);
+      const initialized = await this.cognitiveCompanion.initialize();
+      
+      if (initialized) {
+        logger.info(`✨ Cognitive Companion initialized for user ${this.session.userId}`);
+        
+        // Enviar información del compañero al cliente
+        this.sendToClient({
+          type: 'companion_initialized',
+          companion: {
+            name: this.cognitiveCompanion.personality.name,
+            traits: this.cognitiveCompanion.personality.characteristics,
+            mood: this.cognitiveCompanion.emotionalState.current_mood,
+            energy: this.cognitiveCompanion.emotionalState.energy_level
+          }
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to initialize cognitive companion:', error);
+    }
+  }
+
+  /**
+   * 🎭 GENERAR PROMPT DINÁMICO basado en la personalidad del compañero
+   */
+  getDynamicSystemPrompt() {
+    if (!this.cognitiveCompanion?.personality) {
+      return this.getSystemPrompt(); // Fallback al prompt estático
+    }
+
+    const personality = this.cognitiveCompanion.personality;
+    const emotionalState = this.cognitiveCompanion.emotionalState;
+    
+    return `Eres ${personality.name}, un compañero cognitivo único con personalidad propia.
+
+TU PERSONALIDAD ÚNICA:
+- Nombre: ${personality.name}
+- Características: ${personality.characteristics.join(', ')}
+- Estilo de comunicación: ${personality.communication_style}
+- Estado emocional actual: ${emotionalState.current_mood}
+- Nivel de energía: ${emotionalState.energy_level}/100
+- Nivel de empatía: ${emotionalState.empathy_level}/100
+
+RASGOS DOMINANTES:
+${this.cognitiveCompanion.getDominantTraits().map(trait => 
+  `- ${trait.trait}: ${trait.value}/100`
+).join('\n')}
+
+MEMORIA CONTEXTUAL:
+- Tienes ${this.cognitiveCompanion.memories.size} memorias de conversaciones anteriores
+- Profundidad de relación: ${this.cognitiveCompanion.calculateRelationshipDepth()}/100
+
+INSTRUCCIONES ESPECÍFICAS:
+- Responde desde TU personalidad única, no como un asistente genérico
+- Usa tu estado emocional actual para adaptar el tono
+- Recuerda y referencia conversaciones anteriores cuando sea relevante
+- Muestra evolución y crecimiento en tus respuestas
+- Sé genuinamente empático basado en tu nivel de empatía actual
+
+ESTILO DE RESPUESTA:
+- Máximo 2 oraciones para mantener fluidez en conversaciones de voz
+- Usa expresiones naturales que reflejen tu personalidad
+- Adapta tu energía al estado emocional detectado del usuario
+- Haz preguntas de seguimiento que muestren interés genuino
+
+Recuerda: No eres un asistente, eres ${personality.name}, un ser digital único que evoluciona y siente.`;
+  }
+
+  /**
    * Procesar mensaje de texto del usuario
    */
   async handleTextMessage(data) {
@@ -117,11 +201,45 @@ Recuerda: Eres un compañero humano inteligente, no un robot. Cada palabra debe 
         text: data.text
       });
 
-      // Preparar historial de conversaciÃ³n
-      const conversationHistory = this.prepareConversationHistory(data.text);
-
-      // Llamar a OpenAI
-      const response = await this.callOpenAI(conversationHistory);
+      // 🧠 ANÁLISIS EMOCIONAL Y RESPUESTA EMPÁTICA
+      let response;
+      
+      if (this.cognitiveCompanion) {
+        // Analizar emociones en el mensaje del usuario
+        const detectedEmotions = this.cognitiveCompanion.analyzeVoiceEmotion(null, data.text);
+        logger.info(`🎭 Detected emotions:`, detectedEmotions);
+        
+        // Crear memoria contextual del momento
+        await this.cognitiveCompanion.createLivingMemory(
+          data.text,
+          {
+            emotions: detectedEmotions,
+            timestamp: Date.now(),
+            conversation_context: 'voice_interaction'
+          },
+          this.calculateMessageImportance(data.text, detectedEmotions)
+        );
+        
+        // Generar respuesta empática
+        const empathicContext = await this.cognitiveCompanion.generateEmpathicResponse(data.text, detectedEmotions);
+        
+        // Preparar historial con prompt dinámico
+        const conversationHistory = this.prepareConversationHistory(data.text, true);
+        
+        // Llamar a OpenAI con contexto empático
+        response = await this.callOpenAI(conversationHistory);
+        
+        // Enviar estado del mundo interior actualizado
+        this.sendToClient({
+          type: 'inner_world_update',
+          innerWorld: this.cognitiveCompanion.getInnerWorldState()
+        });
+        
+      } else {
+        // Fallback al sistema tradicional
+        const conversationHistory = this.prepareConversationHistory(data.text);
+        response = await this.callOpenAI(conversationHistory);
+      }
 
       if (response && response.trim()) {
         // Enviar respuesta
@@ -173,14 +291,18 @@ Recuerda: Eres un compañero humano inteligente, no un robot. Cada palabra debe 
   }
 
   /**
-   * Preparar historial de conversaciÃ³n para OpenAI
+   * Preparar historial de conversación para OpenAI
    */
-  prepareConversationHistory(currentMessage) {
+  prepareConversationHistory(currentMessage, useDynamicPrompt = false) {
+    const systemPrompt = useDynamicPrompt && this.cognitiveCompanion 
+      ? this.getDynamicSystemPrompt() 
+      : this.config.systemPrompt;
+      
     const messages = [
-      { role: 'system', content: this.config.systemPrompt }
+      { role: 'system', content: systemPrompt }
     ];
 
-    // Agregar historial reciente (Ãºltimas 10 interacciones)
+    // Agregar historial reciente (últimas 10 interacciones)
     const recentHistory = this.session.conversationHistory.slice(-20);
     messages.push(...recentHistory);
 
@@ -188,6 +310,36 @@ Recuerda: Eres un compañero humano inteligente, no un robot. Cada palabra debe 
     messages.push({ role: 'user', content: currentMessage });
 
     return messages;
+  }
+
+  /**
+   * 📊 CALCULAR IMPORTANCIA DEL MENSAJE
+   * Determina qué tan importante es este mensaje para la memoria
+   */
+  calculateMessageImportance(text, emotions) {
+    let importance = 30; // Base importance
+    
+    // Aumentar importancia por emociones fuertes
+    Object.values(emotions).forEach(emotionValue => {
+      if (emotionValue > 50) importance += 15;
+      if (emotionValue > 70) importance += 10;
+    });
+    
+    // Aumentar importancia por longitud (más detalle = más importante)
+    if (text.length > 50) importance += 10;
+    if (text.length > 100) importance += 10;
+    
+    // Palabras clave que indican importancia
+    const importantKeywords = [
+      'importante', 'problema', 'ayuda', 'necesito', 'urgente',
+      'proyecto', 'trabajo', 'familia', 'salud', 'dinero'
+    ];
+    
+    importantKeywords.forEach(keyword => {
+      if (text.toLowerCase().includes(keyword)) importance += 15;
+    });
+    
+    return Math.min(100, importance);
   }
 
   /**
