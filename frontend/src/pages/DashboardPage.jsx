@@ -6,11 +6,11 @@ import { fetchConversations } from '../services/conversationsApi';
 import BotFace from '../components/Bot/BotFace';
 import ChatInterface from '../components/Chat/ChatInterface';
 import VoiceControl from '../components/Voice/VoiceControl';
-import { InfoWidgets } from '../components/Widgets/InfoWidgets';
 import { ConversationHistory } from '../components/History/ConversationHistory';
 import { MobileLayout } from '../components/Mobile/MobileLayout';
+import { ServiceStatusPanel } from '../components/Settings/ServiceStatusPanel';
 import { LogOut, Settings } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
@@ -90,46 +90,48 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-6">
+      <div className="max-w-6xl mx-auto grid gap-6 lg:grid-cols-12">
         <motion.div
-          className="lg:col-span-3 hidden lg:block"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <InfoWidgets />
-        </motion.div>
-
-        <motion.div
-          className="lg:col-span-3"
+          className="lg:col-span-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
+          transition={{ duration: 0.5 }}
         >
-          <div className="card h-full flex flex-col items-center justify-center p-8">
-            <div className="flex flex-col items-center gap-8">
+          <div className="card h-full flex flex-col items-center justify-center p-6 lg:p-8">
+            <div className="flex flex-col items-center gap-6 lg:gap-8">
               <BotFace />
               <VoiceControl />
             </div>
-
             <div className="mt-6 text-center text-sm text-gray-400">
-              <p>Haz clic en el microfono para hablar</p>
-              <p>o escribe en el chat</p>
+              <p>Pulsa el micrófono o escribe en el chat.</p>
             </div>
           </div>
         </motion.div>
 
         <motion.div
-          className="lg:col-span-6"
+          className="lg:col-span-8"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
+          transition={{ duration: 0.5 }}
         >
           <ChatInterface />
         </motion.div>
       </div>
 
       <ConversationHistory />
+
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          >
+            <ServiceStatusPanel onClose={() => setShowSettings(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -4,14 +4,15 @@ import { Menu, X, MessageCircle, Mic, Settings } from 'lucide-react';
 import BotFace from '../Bot/BotFace';
 import ChatInterface from '../Chat/ChatInterface';
 import VoiceControl from '../Voice/VoiceControl';
-import { InfoWidgets } from '../Widgets/InfoWidgets';
 import { ConversationHistory } from '../History/ConversationHistory';
 import { useBotStore } from '../../store/botStore';
+import { ServiceStatusPanel } from '../Settings/ServiceStatusPanel';
 
 export function MobileLayout() {
   const [activeTab, setActiveTab] = useState('voice');
   const [showMenu, setShowMenu] = useState(false);
-  const { isConnected, messages } = useBotStore();
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const { isConnected } = useBotStore();
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
@@ -31,6 +32,13 @@ export function MobileLayout() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSettingsPanel(true)}
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            aria-label="Abrir servicios"
+          >
+            <Settings size={20} className="text-white" />
+          </button>
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
@@ -52,7 +60,6 @@ export function MobileLayout() {
             <div className="p-4 space-y-2">
               <MenuButton icon={<MessageCircle size={18} />} label="Chat" onClick={() => { setActiveTab('chat'); setShowMenu(false); }} />
               <MenuButton icon={<Mic size={18} />} label="Voz" onClick={() => { setActiveTab('voice'); setShowMenu(false); }} />
-              <MenuButton icon={<Settings size={18} />} label="Widgets" onClick={() => { setActiveTab('widgets'); setShowMenu(false); }} />
             </div>
           </motion.div>
         )}
@@ -85,24 +92,9 @@ export function MobileLayout() {
                 <BotFace />
                 <VoiceControl />
                 <div className="text-center text-white/80 text-sm">
-                  <p>Toca el microfono para hablar</p>
-                  <p className="text-xs mt-2 text-white/60">
-                    {messages.length} mensajes en esta conversacion
-                  </p>
+                  <p>Toca el micrófono o escribe cuando prefieras.</p>
                 </div>
               </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'widgets' && (
-            <motion.div
-              key="widgets"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="h-full overflow-y-auto p-4"
-            >
-              <InfoWidgets />
             </motion.div>
           )}
         </AnimatePresence>
@@ -123,16 +115,23 @@ export function MobileLayout() {
             active={activeTab === 'voice'}
             onClick={() => setActiveTab('voice')}
           />
-          <NavButton
-            icon={<Settings size={24} />}
-            label="Info"
-            active={activeTab === 'widgets'}
-            onClick={() => setActiveTab('widgets')}
-          />
         </div>
       </nav>
 
       <ConversationHistory />
+
+      <AnimatePresence>
+        {showSettingsPanel && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          >
+            <ServiceStatusPanel onClose={() => setShowSettingsPanel(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

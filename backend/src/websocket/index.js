@@ -1673,6 +1673,25 @@ async function handleTextMessage(session, text) {
       responseText = 'He ejecutado la acción solicitada.';
     }
 
+    const normalizedResponse = (responseText || '').trim().toLowerCase();
+    const lastAssistantMessage = [...(session.conversationHistory || [])].reverse().find(msg => msg.role === 'assistant');
+
+    if (lastAssistantMessage) {
+      const lastText = (lastAssistantMessage.content || '').trim().toLowerCase();
+      const lastTs = lastAssistantMessage.timestamp ? new Date(lastAssistantMessage.timestamp).getTime() : 0;
+      const isDuplicateGreeting =
+        greetRe.test(responseText) &&
+        greetRe.test(lastAssistantMessage.content || '') &&
+        nowTs - lastTs < 10000;
+      const isExactDuplicate = lastText === normalizedResponse;
+
+      if (isDuplicateGreeting || isExactDuplicate) {
+        logger.info('Suppressed duplicate assistant response');
+        session.stateMachine.transition('idle');
+        return;
+      }
+    }
+
     // Guardar respuesta en el historial
     session.conversationHistory.push({
       role: 'assistant',
