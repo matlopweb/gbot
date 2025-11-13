@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useBotStore } from '../store/botStore';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -10,6 +10,8 @@ import { ConversationHistory } from '../components/History/ConversationHistory';
 import { SavedItemsButton } from '../components/SavedItems/SavedItemsButton';
 import { MobileLayout } from '../components/Mobile/MobileLayout';
 import { ServiceStatusPanel } from '../components/Settings/ServiceStatusPanel';
+import { ScenarioSwitcher } from '../components/Scenarios/ScenarioSwitcher';
+import { useScenarioStore } from '../store/scenarioStore';
 import { LogOut, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -18,6 +20,8 @@ export default function DashboardPage() {
   const { logout, token } = useAuthStore();
   const { isConnected } = useWebSocket();
   const hydrateMessages = useBotStore(state => state.hydrateMessages);
+  const toneTheme = useScenarioStore((state) => state.getToneTheme());
+  const activeScenario = useScenarioStore((state) => state.activeScenario);
   const [showSettings, setShowSettings] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const hasHydrated = useRef(false);
@@ -56,7 +60,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen p-4">
+    <div className={`min-h-screen p-4 bg-gradient-to-br ${toneTheme.gradient} transition-colors duration-700`}>
       <div className="max-w-6xl mx-auto mb-6">
         <div className="flex justify-between items-center glass rounded-2xl p-4">
           <div className="flex items-center gap-3">
@@ -73,7 +77,8 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <ScenarioSwitcher />
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="p-2 glass rounded-lg hover:bg-white/20 transition-all"
@@ -103,8 +108,13 @@ export default function DashboardPage() {
               <BotFace />
               <VoiceControl />
             </div>
-            <div className="mt-6 text-center text-sm text-gray-400">
+            <div className="mt-6 text-center text-sm text-gray-400 space-y-1">
               <p>Pulsa el micrófono o escribe en el chat.</p>
+              {activeScenario && (
+                <p className="text-xs text-white/70">
+                  Escenario activo: <span className="font-semibold">{activeScenario.name}</span>
+                </p>
+              )}
             </div>
           </div>
         </motion.div>
@@ -139,4 +149,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 

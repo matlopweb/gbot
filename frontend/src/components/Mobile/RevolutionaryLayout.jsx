@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { useAuthStore } from '../../store/authStore';
 import { useAvatarLifeStore } from '../../store/avatarLifeStore';
 import { useBotStore } from '../../store/botStore';
+import { useScenarioStore } from '../../store/scenarioStore';
+import { ScenarioSwitcher } from '../Scenarios/ScenarioSwitcher';
 import ProfessionalAvatar from '../Bot/ProfessionalAvatar';
 import { SimpleVoiceSystem } from '../Bot/SimpleVoiceSystem';
 import { NaturalConversationFlow } from '../Bot/NaturalConversationFlow';
@@ -16,6 +18,8 @@ export function RevolutionaryLayout() {
   const { vitalStats, currentMood, friendship } = useAvatarLifeStore();
   const { isConnected } = useBotStore();
   const { logout } = useAuthStore();
+  const toneTheme = useScenarioStore((state) => state.getToneTheme());
+  const activeScenario = useScenarioStore((state) => state.activeScenario);
 
   // Ocultar bienvenida después de unos segundos
   useEffect(() => {
@@ -30,7 +34,7 @@ export function RevolutionaryLayout() {
   // El sistema de bienvenida inteligente maneja esto ahora
 
   return (
-    <div className="h-screen bg-gradient-to-br from-black via-gray-900 to-black flex flex-col relative overflow-hidden">
+    <div className={`h-screen bg-gradient-to-br ${toneTheme.gradient} flex flex-col relative overflow-hidden transition-colors duration-700`}>
       
       {/* Efectos de fondo sutiles */}
       <div className="absolute inset-0">
@@ -74,6 +78,10 @@ export function RevolutionaryLayout() {
         >
           Salir
         </motion.button>
+      </div>
+
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
+        <ScenarioSwitcher compact />
       </div>
 
       {/* Estado de conexión sutil */}
