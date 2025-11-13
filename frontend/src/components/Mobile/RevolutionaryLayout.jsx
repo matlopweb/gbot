@@ -6,7 +6,7 @@ import { useBotStore } from '../../store/botStore';
 import { useScenarioStore } from '../../store/scenarioStore';
 import { ScenarioSwitcher } from '../Scenarios/ScenarioSwitcher';
 import ProfessionalAvatar from '../Bot/ProfessionalAvatar';
-import { VoiceSystemPro } from '../Professional/VoiceSystemPro';
+import { AdaptiveVoiceSystem } from '../Professional/AdaptiveVoiceSystem';
 import { NaturalConversationFlow } from '../Bot/NaturalConversationFlow';
 import { IntelligentWelcome } from '../Bot/IntelligentWelcome';
 import { SystemStatus } from '../Debug/SystemStatus';
@@ -229,7 +229,7 @@ export function RevolutionaryLayout() {
       <SystemMonitor />
       <SystemStatus />
       <IntelligentWelcome />
-      <VoiceSystemPro />
+      <AdaptiveVoiceSystem />
       <NaturalConversationFlow />
     </div>
   );
