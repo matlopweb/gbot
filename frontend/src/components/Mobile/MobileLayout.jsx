@@ -13,11 +13,11 @@ import { FloatingActionButton } from '../UI/FloatingActionButton';
 import { useBotStore } from '../../store/botStore';
 import { ServiceStatusPanel } from '../Settings/ServiceStatusPanel';
 
-import { ContinuousFlowLayout } from './ContinuousFlowLayout';
+import { PremiumLayout } from './PremiumLayout';
 
 export function MobileLayout() {
-  // Usar el nuevo layout de flujo continuo
-  return <ContinuousFlowLayout />;
+  // Usar el nuevo layout premium de clase mundial
+  return <PremiumLayout />;
 }
 
 export function MobileLayoutLegacy() {
