@@ -152,13 +152,20 @@ export function useWebSocket() {
 
   const send = useCallback((data) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.info('📤 Sending message:', data.type);
       wsRef.current.send(JSON.stringify(data));
       return;
     }
 
-    console.warn('WebSocket not connected, queuing message and attempting reconnect');
+    console.warn('⚠️ WebSocket not connected, queuing message and attempting reconnect');
     pendingQueueRef.current.push(data);
-    connect();
+    
+    // Esperar un poco antes de reconectar para evitar spam
+    setTimeout(() => {
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        connect();
+      }
+    }, 500);
   }, [connect]);
 
   const playAudio = useCallback(async (base64Audio) => {
@@ -279,6 +286,15 @@ export function useWebSocket() {
       case 'audio_response':
         // Reproducir audio del bot
         playAudio(data.audio);
+        break;
+
+      case 'token_refreshed':
+        console.info('✅ Token refreshed successfully');
+        break;
+
+      case 'notice':
+        // Mostrar como toast en lugar de mensaje de chat
+        toast(data.message, { icon: 'ℹ️' });
         break;
 
       case 'function_call':
