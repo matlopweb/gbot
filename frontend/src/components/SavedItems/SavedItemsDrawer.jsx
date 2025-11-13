@@ -45,19 +45,48 @@ export function SavedItemsDrawer({ isOpen, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!token) return;
+    if (!token) {
+      toast.error('No hay token de autenticación');
+      return;
+    }
+    
+    // Validación del formulario
+    if (!form.title.trim()) {
+      toast.error('El título es requerido');
+      return;
+    }
+    
+    if (activeTab === 'link' && !form.url.trim()) {
+      toast.error('La URL es requerida para enlaces');
+      return;
+    }
+    
+    if (activeTab !== 'link' && !form.content.trim()) {
+      toast.error('El contenido es requerido');
+      return;
+    }
+
     setSubmitting(true);
+    console.info('🔄 Enviando elemento guardado:', {
+      type: activeTab,
+      title: form.title,
+      url: activeTab === 'link' ? form.url : undefined,
+      content: activeTab !== 'link' ? form.content : undefined
+    });
+
     try {
-      await createSavedItem(token, {
+      const result = await createSavedItem(token, {
         type: activeTab,
         title: form.title,
         url: activeTab === 'link' ? form.url : undefined,
         content: activeTab !== 'link' ? form.content : undefined
       });
+      console.info('✅ Elemento guardado exitosamente:', result);
       toast.success('Guardado correctamente');
       setForm({ title: '', url: '', content: '' });
       await loadItems();
     } catch (error) {
+      console.error('❌ Error al guardar elemento:', error);
       toast.error(error.message || 'Error al guardar');
     } finally {
       setSubmitting(false);

@@ -55,8 +55,10 @@ router.post('/', async (req, res) => {
     if (!ensureSupabase(res)) return;
 
     const { type, title, url, content } = req.body;
+    logger.info('📝 Received saved item request:', { type, title, url: url ? '[URL]' : null, content: content ? '[CONTENT]' : null, userId: req.user.userId });
 
     if (!type || !['link', 'note', 'audio'].includes(type)) {
+      logger.warn('❌ Invalid type provided:', type);
       return res.status(400).json({
         success: false,
         message: 'Invalid type'
@@ -64,6 +66,7 @@ router.post('/', async (req, res) => {
     }
 
     if (type === 'link' && !url) {
+      logger.warn('❌ URL required for link type');
       return res.status(400).json({
         success: false,
         message: 'URL is required for links'
@@ -71,6 +74,7 @@ router.post('/', async (req, res) => {
     }
 
     if (type !== 'link' && !content) {
+      logger.warn('❌ Content required for non-link type');
       return res.status(400).json({
         success: false,
         message: 'Content is required'
@@ -85,13 +89,20 @@ router.post('/', async (req, res) => {
       content: content || null
     };
 
+    logger.info('💾 Inserting into Supabase:', payload);
+
     const { data, error } = await supabase
       .from('saved_items')
       .insert(payload)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      logger.error('❌ Supabase error:', error);
+      throw error;
+    }
+
+    logger.info('✅ Item saved successfully:', data.id);
 
     res.json({
       success: true,

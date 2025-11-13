@@ -25,11 +25,19 @@ export async function fetchSavedItems(token, type) {
 }
 
 export async function createSavedItem(token, payload) {
-  return request('/api/saved-items', {
-    token,
-    method: 'POST',
-    body: payload
-  });
+  console.info('📡 API: Enviando solicitud de guardado:', payload);
+  try {
+    const result = await request('/api/saved-items', {
+      token,
+      method: 'POST',
+      body: payload
+    });
+    console.info('📡 API: Respuesta exitosa:', result);
+    return result;
+  } catch (error) {
+    console.error('📡 API: Error en solicitud:', error);
+    throw error;
+  }
 }
 
 export async function deleteSavedItem(token, id) {
