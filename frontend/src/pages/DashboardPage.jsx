@@ -7,6 +7,7 @@ import BotFace from '../components/Bot/BotFace';
 import ChatInterface from '../components/Chat/ChatInterface';
 import VoiceControl from '../components/Voice/VoiceControl';
 import { ConversationHistory } from '../components/History/ConversationHistory';
+import { SavedItemsButton } from '../components/SavedItems/SavedItemsButton';
 import { MobileLayout } from '../components/Mobile/MobileLayout';
 import { ServiceStatusPanel } from '../components/Settings/ServiceStatusPanel';
 import { LogOut, Settings } from 'lucide-react';
@@ -121,6 +122,7 @@ export default function DashboardPage() {
       </div>
 
       <ConversationHistory />
+      <SavedItemsButton />
 
       <AnimatePresence>
         {showSettings && (

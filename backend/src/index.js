@@ -10,6 +10,7 @@ import calendarRoutes from './routes/calendar.js';
 import tasksRoutes from './routes/tasks.js';
 import spotifyRoutes from './routes/spotify.js';
 import conversationsRoutes from './routes/conversations.js';
+import savedItemsRoutes from './routes/savedItems.js';
 import { setupWebSocket } from './websocket/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger, withRequestLogger } from './utils/logger.js';
@@ -66,6 +67,7 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/spotify', spotifyRoutes);
 app.use('/api/conversations', conversationsRoutes);
+app.use('/api/saved-items', savedItemsRoutes);
 app.use('/metrics', metricsRouter);
 
 // WebSocket setup

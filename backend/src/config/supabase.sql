@@ -53,6 +53,21 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_user_tokens_user_service ON user_tokens(user_id, service);
 
+-- Tabla de elementos guardados (notas, links, audio)
+CREATE TABLE IF NOT EXISTS saved_items (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('link', 'note', 'audio')),
+  title TEXT,
+  content TEXT,
+  url TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_items_user ON saved_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_saved_items_type ON saved_items(type);
+
 -- Tabla de embeddings para búsqueda semántica (opcional - requiere extensión pgvector)
 -- Descomenta si quieres usar búsqueda semántica
 /*

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, MessageCircle, Mic, Settings } from 'lucide-react';
+import { Menu, X, MessageCircle, Mic, Settings, LogOut } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 import BotFace from '../Bot/BotFace';
 import ChatInterface from '../Chat/ChatInterface';
 import VoiceControl from '../Voice/VoiceControl';
 import { ConversationHistory } from '../History/ConversationHistory';
+import { SavedItemsButton } from '../SavedItems/SavedItemsButton';
 import { useBotStore } from '../../store/botStore';
 import { ServiceStatusPanel } from '../Settings/ServiceStatusPanel';
 
@@ -13,6 +15,7 @@ export function MobileLayout() {
   const [showMenu, setShowMenu] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const { isConnected } = useBotStore();
+  const { logout } = useAuthStore();
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
@@ -38,6 +41,16 @@ export function MobileLayout() {
             aria-label="Abrir servicios"
           >
             <Settings size={20} className="text-white" />
+          </button>
+          <button
+            onClick={() => {
+              logout();
+              window.location.href = '/';
+            }}
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut size={20} className="text-white" />
           </button>
           <button
             onClick={() => setShowMenu(!showMenu)}
@@ -119,6 +132,7 @@ export function MobileLayout() {
       </nav>
 
       <ConversationHistory />
+      <SavedItemsButton />
 
       <AnimatePresence>
         {showSettingsPanel && (
