@@ -4,9 +4,10 @@ import { useAuthStore } from '../../store/authStore';
 import { useAvatarLifeStore } from '../../store/avatarLifeStore';
 import { useBotStore } from '../../store/botStore';
 import ProfessionalAvatar from '../Bot/ProfessionalAvatar';
-import { PerfectVoiceSystem } from '../Bot/PerfectVoiceSystem';
+import { SimpleVoiceSystem } from '../Bot/SimpleVoiceSystem';
 import { NaturalConversationFlow } from '../Bot/NaturalConversationFlow';
 import { IntelligentWelcome } from '../Bot/IntelligentWelcome';
+import { SystemStatus } from '../Debug/SystemStatus';
 
 export function RevolutionaryLayout() {
   const [showWelcome, setShowWelcome] = useState(true);
@@ -216,8 +217,9 @@ export function RevolutionaryLayout() {
       )}
 
       {/* Sistemas invisibles */}
+      <SystemStatus />
       <IntelligentWelcome />
-      <PerfectVoiceSystem />
+      <SimpleVoiceSystem />
       <NaturalConversationFlow />
     </div>
   );
