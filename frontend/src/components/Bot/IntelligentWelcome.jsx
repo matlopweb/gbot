@@ -61,6 +61,11 @@ export function IntelligentWelcome() {
           
           utterance.onerror = (error) => {
             console.error('❌ Welcome speech error:', error);
+            // Si es error de permisos, no reintentar
+            if (error.error === 'not-allowed') {
+              console.warn('🔇 Speech synthesis not allowed, skipping welcome speech');
+              return;
+            }
           };
           
           speechSynthesis.speak(utterance);

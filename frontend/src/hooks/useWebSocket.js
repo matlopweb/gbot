@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useBotStore } from '../store/botStore';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -386,7 +386,11 @@ export function useWebSocket() {
         connect();
         if (typeof window !== 'undefined') window[WS_AUTO_KEY] = true;
       } else {
-        console.info('WS auto-connect already performed');
+        // Solo mostrar este log una vez para evitar spam
+        if (!window[WS_AUTO_KEY + '_logged']) {
+          console.info('WS auto-connect already performed');
+          window[WS_AUTO_KEY + '_logged'] = true;
+        }
       }
     }
     // No desconectar en unmount para evitar ciclos de reconexiÃ³n cuando hay mÃºltiples montajes

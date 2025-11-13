@@ -121,14 +121,18 @@ export function VoiceSystemPro() {
       // Ejecutar diagnósticos
       const diagnostics = await runDiagnostics();
       
-      // Verificar requisitos mínimos
+      // Verificar requisitos mínimos (WebSocket puede conectarse después)
       const hasMinimumRequirements = 
         diagnostics.speechRecognition.supported &&
-        diagnostics.speechSynthesis.supported &&
-        diagnostics.webSocket.connected;
+        diagnostics.speechSynthesis.supported;
 
       if (!hasMinimumRequirements) {
-        throw new Error('Minimum system requirements not met');
+        throw new Error('Speech APIs not supported in this browser');
+      }
+
+      // WebSocket se conectará automáticamente, no es requisito para inicialización
+      if (!diagnostics.webSocket.connected) {
+        log('warn', 'WebSocket not connected yet, but system can initialize');
       }
 
       // Inicializar Speech Synthesis con retry
@@ -264,7 +268,7 @@ export function VoiceSystemPro() {
 
       addMessage(userMessage);
 
-      // Enviar al backend
+      // Enviar al backend (con retry automático si no está conectado)
       if (isConnected) {
         send({
           type: 'text_message',
@@ -278,7 +282,17 @@ export function VoiceSystemPro() {
 
         log('info', 'Message sent to backend');
       } else {
-        throw new Error('WebSocket not connected');
+        log('warn', 'WebSocket not connected, message will be queued');
+        // El hook useWebSocket maneja automáticamente la cola y reconexión
+        send({
+          type: 'text_message',
+          text: transcript.trim(),
+          id: userMessage.id,
+          metadata: {
+            voice_conversation: true,
+            timestamp: Date.now()
+          }
+        });
       }
 
       // Actualizar estados del avatar

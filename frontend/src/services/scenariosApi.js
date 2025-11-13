@@ -23,8 +23,25 @@ async function request(path, { token, method = 'GET', body } = {}) {
 }
 
 export async function fetchScenarios(token) {
-  const data = await request('/api/scenarios', { token });
-  return data.scenarios || [];
+  try {
+    const data = await request('/api/scenarios', { token });
+    return data.scenarios || [];
+  } catch (error) {
+    console.warn('Failed to load scenarios from server, using fallback:', error.message);
+    // Retornar scenarios por defecto si falla la carga
+    return [
+      {
+        id: 'default',
+        name: 'Clásico',
+        description: 'Ambiente clásico y elegante',
+        theme: {
+          primary: '#6366f1',
+          secondary: '#8b5cf6',
+          background: 'from-indigo-600 to-purple-600'
+        }
+      }
+    ];
+  }
 }
 
 export async function createScenario(token, payload) {
