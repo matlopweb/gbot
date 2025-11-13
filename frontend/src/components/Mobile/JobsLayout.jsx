@@ -11,6 +11,8 @@ import { BestFriendSystem } from '../Bot/BestFriendSystem';
 import { EmotionalExpression } from '../Bot/EmotionalExpression';
 import { EmotionalNotifications } from '../Bot/EmotionalNotifications';
 import { ConversationInitiative } from '../Bot/ConversationInitiative';
+import { LifeCompanion } from '../Bot/LifeCompanion';
+import { EvolutionaryPersonality } from '../Bot/EvolutionaryPersonality';
 
 export function JobsLayout() {
   const [interactionState, setInteractionState] = useState('waiting'); // waiting, listening, thinking, responding
@@ -289,6 +291,8 @@ export function JobsLayout() {
       <EmotionalExpression />
       <EmotionalNotifications />
       <ConversationInitiative />
+      <LifeCompanion />
+      <EvolutionaryPersonality />
     </div>
   );
 }
