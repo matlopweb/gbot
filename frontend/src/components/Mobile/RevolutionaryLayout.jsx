@@ -6,10 +6,11 @@ import { useBotStore } from '../../store/botStore';
 import { useScenarioStore } from '../../store/scenarioStore';
 import { ScenarioSwitcher } from '../Scenarios/ScenarioSwitcher';
 import ProfessionalAvatar from '../Bot/ProfessionalAvatar';
-import { SimpleVoiceSystem } from '../Bot/SimpleVoiceSystem';
+import { VoiceSystemPro } from '../Professional/VoiceSystemPro';
 import { NaturalConversationFlow } from '../Bot/NaturalConversationFlow';
 import { IntelligentWelcome } from '../Bot/IntelligentWelcome';
 import { SystemStatus } from '../Debug/SystemStatus';
+import { SystemMonitor } from '../Professional/SystemMonitor';
 
 export function RevolutionaryLayout() {
   const [showWelcome, setShowWelcome] = useState(true);
@@ -225,9 +226,10 @@ export function RevolutionaryLayout() {
       )}
 
       {/* Sistemas invisibles */}
+      <SystemMonitor />
       <SystemStatus />
       <IntelligentWelcome />
-      <SimpleVoiceSystem />
+      <VoiceSystemPro />
       <NaturalConversationFlow />
     </div>
   );

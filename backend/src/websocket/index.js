@@ -1,7 +1,8 @@
-﻿import { WebSocket } from 'ws';
+import { WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import { OpenAIRealtimeSession } from './openaiRealtime.js';
 import { BotStateMachine } from './stateMachine.js';
+import { ProfessionalWebSocketHandler } from './professionalHandler.js';
 import { verifyToken } from '../middleware/auth.js';
 import { logger } from '../utils/logger.js';
 import { ProactiveBehavior } from '../services/proactiveBehavior.js';
@@ -28,7 +29,7 @@ export function setupWebSocket(wss) {
     }
     const userId = decoded.userId;
 
-    // Crear sesiÃ³n (no forzar cierre de sesiones previas para evitar reconexiones en loop)
+    // Crear sesión profesional
     const session = {
       id: sessionId,
       userId,
@@ -47,11 +48,15 @@ export function setupWebSocket(wss) {
       emailService: null,
       learningService: null,
       contextualMemory: new ContextualMemory(userId), // Sistema de memoria
-      conversationHistory: [], // Historial de conversaciÃ³n
+      conversationHistory: [], // Historial de conversación
       lastGreetingAt: 0,
       lastUserMessageAt: 0,
-      processedMessageIds: new Set()
+      processedMessageIds: new Set(),
+      professionalHandler: null // Manejador profesional
     };
+    
+    // Inicializar manejador profesional
+    session.professionalHandler = new ProfessionalWebSocketHandler(session);
     bindSessionToken(session, token);
 
     sessions.set(sessionId, session);
@@ -66,12 +71,19 @@ export function setupWebSocket(wss) {
       });
     });
 
-    // Manejar mensajes del cliente
+    // Manejar mensajes del cliente con sistema profesional
     ws.on('message', async (data) => {
       try {
         const message = JSON.parse(data.toString());
         trackWsMessage(message.type || 'unknown');
-        await handleClientMessage(session, message);
+        
+        // Usar el manejador profesional
+        if (session.professionalHandler) {
+          await session.professionalHandler.handleMessage(message);
+        } else {
+          // Fallback al sistema anterior
+          await handleClientMessage(session, message);
+        }
       } catch (error) {
         logger.error('Error processing message:', error);
         trackWsError();
@@ -87,16 +99,22 @@ export function setupWebSocket(wss) {
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
 
-    // Manejar desconexiÃ³n
+    // Manejar desconexión
     ws.on('close', (code, reason) => {
       const reasonText = reason?.toString?.() || '';
       logger.info(`WebSocket disconnected: ${sessionId} code=${code} reason=${reasonText}`);
+      
+      // Limpiar recursos
       if (session.openaiSession) {
         session.openaiSession.close();
       }
       if (session.proactiveBehavior) {
         session.proactiveBehavior.stop();
       }
+      if (session.professionalHandler) {
+        session.professionalHandler.cleanup();
+      }
+      
       sessions.delete(sessionId);
       trackWsConnection(-1);
     });
