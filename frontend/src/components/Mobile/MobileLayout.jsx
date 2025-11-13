@@ -13,11 +13,12 @@ import { FloatingActionButton } from '../UI/FloatingActionButton';
 import { useBotStore } from '../../store/botStore';
 import { ServiceStatusPanel } from '../Settings/ServiceStatusPanel';
 
-import { JobsLayout } from './JobsLayout';
+import { EvolutionaryPersonality } from '../Bot/EvolutionaryPersonality';
+import { RevolutionaryLayout } from './RevolutionaryLayout';
 
 export function MobileLayout() {
-  // Usar el layout minimalista inspirado en Steve Jobs
-  return <JobsLayout />;
+  // Usar el layout revolucionario completamente natural
+  return <RevolutionaryLayout />;
 }
 
 export function MobileLayoutLegacy() {
