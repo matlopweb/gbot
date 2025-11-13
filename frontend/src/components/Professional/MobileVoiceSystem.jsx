@@ -288,57 +288,146 @@ export function MobileVoiceSystem() {
     }
   }, [send, addMessage, receiveAttention, strengthenFriendship, conversationState, log]);
 
-  // Síntesis de voz optimizada para móviles
+  // Seleccionar la mejor voz española disponible
+  const getBestSpanishVoice = useCallback(() => {
+    const voices = speechSynthesis.getVoices();
+    
+    // Prioridad de voces (de mejor a peor calidad)
+    const voicePriority = [
+      // Voces premium de alta calidad
+      (v) => v.lang.includes('es-ES') && v.name.includes('Premium'),
+      (v) => v.lang.includes('es-ES') && v.name.includes('Enhanced'),
+      (v) => v.lang.includes('es-MX') && v.name.includes('Premium'),
+      
+      // Voces nativas del sistema (mejor calidad)
+      (v) => v.lang.includes('es-ES') && v.localService,
+      (v) => v.lang.includes('es-MX') && v.localService,
+      (v) => v.lang.includes('es-AR') && v.localService,
+      
+      // Voces específicas de calidad conocida
+      (v) => v.name.includes('Monica'), // Voz femenina española de calidad
+      (v) => v.name.includes('Jorge'), // Voz masculina española de calidad
+      (v) => v.name.includes('Paulina'), // Voz mexicana de calidad
+      
+      // Cualquier voz española
+      (v) => v.lang.includes('es-ES'),
+      (v) => v.lang.includes('es-MX'),
+      (v) => v.lang.includes('es')
+    ];
+
+    for (const matcher of voicePriority) {
+      const voice = voices.find(matcher);
+      if (voice) {
+        log('info', `Selected voice: ${voice.name} (${voice.lang})`, {
+          localService: voice.localService,
+          default: voice.default
+        });
+        return voice;
+      }
+    }
+
+    log('warn', 'No Spanish voice found, using default');
+    return null;
+  }, [log]);
+
+  // Dividir texto en chunks para evitar cortes
+  const splitTextIntoChunks = useCallback((text, maxLength = 200) => {
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const chunks = [];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+      if ((currentChunk + sentence).length <= maxLength) {
+        currentChunk += sentence;
+      } else {
+        if (currentChunk) chunks.push(currentChunk.trim());
+        currentChunk = sentence;
+      }
+    }
+
+    if (currentChunk) chunks.push(currentChunk.trim());
+    return chunks.length > 0 ? chunks : [text];
+  }, []);
+
+  // Síntesis de voz optimizada con chunks para evitar cortes
   const speakMobileResponse = useCallback((text) => {
     if (!text || !('speechSynthesis' in window)) {
       log('warn', 'Cannot speak on mobile: no text or synthesis not supported');
       return;
     }
 
-    log('info', 'Speaking mobile response', { text: text.substring(0, 50) + '...' });
+    log('info', 'Speaking mobile response', { 
+      textLength: text.length,
+      preview: text.substring(0, 50) + '...' 
+    });
+    
     setConversationState('speaking');
 
     // Cancelar speech anterior
     speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Configuración optimizada para móviles
-    utterance.lang = 'es-ES';
-    utterance.rate = 0.8; // Más lento para móviles
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0; // Volumen máximo para móviles
+    // Dividir texto en chunks para evitar cortes
+    const chunks = splitTextIntoChunks(text, 150);
+    log('info', `Text split into ${chunks.length} chunks`);
 
-    // Seleccionar mejor voz para móviles
-    const voices = speechSynthesis.getVoices();
-    const mobileSpanishVoice = voices.find(voice => 
-      voice.lang.includes('es-ES') && !voice.name.includes('Google') // Evitar voces que pueden fallar en móviles
-    ) || voices.find(voice => voice.lang.includes('es'));
+    let currentChunkIndex = 0;
 
-    if (mobileSpanishVoice) {
-      utterance.voice = mobileSpanishVoice;
-      log('info', 'Using mobile Spanish voice', { voice: mobileSpanishVoice.name });
-    }
+    const speakChunk = () => {
+      if (currentChunkIndex >= chunks.length) {
+        log('info', 'All chunks spoken successfully');
+        setConversationState('idle');
+        utteranceRef.current = null;
+        return;
+      }
 
-    utterance.onstart = () => {
-      log('info', 'Mobile speech synthesis started');
+      const chunk = chunks[currentChunkIndex];
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      
+      // Configuración para voz natural y fluida
+      utterance.lang = 'es-ES';
+      utterance.rate = 0.95; // Velocidad natural (no muy lenta)
+      utterance.pitch = 1.1; // Pitch ligeramente más alto para sonar más natural
+      utterance.volume = 1.0;
+
+      // Usar la mejor voz disponible
+      const bestVoice = getBestSpanishVoice();
+      if (bestVoice) {
+        utterance.voice = bestVoice;
+      }
+
+      utterance.onstart = () => {
+        log('info', `Speaking chunk ${currentChunkIndex + 1}/${chunks.length}`);
+      };
+
+      utterance.onend = () => {
+        currentChunkIndex++;
+        // Pequeña pausa entre chunks para naturalidad
+        setTimeout(speakChunk, 100);
+      };
+
+      utterance.onerror = (error) => {
+        log('error', 'Speech synthesis error', { 
+          error: error.error,
+          chunk: currentChunkIndex 
+        });
+        
+        // Intentar continuar con el siguiente chunk
+        currentChunkIndex++;
+        if (currentChunkIndex < chunks.length) {
+          setTimeout(speakChunk, 200);
+        } else {
+          setConversationState('idle');
+          utteranceRef.current = null;
+        }
+      };
+
+      utteranceRef.current = utterance;
+      speechSynthesis.speak(utterance);
     };
 
-    utterance.onend = () => {
-      log('info', 'Mobile speech synthesis completed');
-      setConversationState('idle');
-      utteranceRef.current = null;
-    };
-
-    utterance.onerror = (error) => {
-      log('error', 'Mobile speech synthesis error', error);
-      setConversationState('idle');
-      utteranceRef.current = null;
-    };
-
-    utteranceRef.current = utterance;
-    speechSynthesis.speak(utterance);
-  }, [log]);
+    // Iniciar la reproducción del primer chunk
+    speakChunk();
+  }, [log, getBestSpanishVoice, splitTextIntoChunks]);
 
   // Iniciar escucha en móviles
   const startMobileListening = useCallback(async () => {

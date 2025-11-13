@@ -6,22 +6,18 @@ import { useBotStore } from '../../store/botStore';
 import { Mic, MicOff, Volume2, Brain, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 
 /**
- * Sistema de Voz Profesional - Clase Mundial
- * Maneja reconocimiento de voz, síntesis y comunicación WebSocket
- * con diagnósticos completos y recuperación automática de errores
+ * Sistema de Voz Profesional
+ * Implementación de clase mundial para conversaciones por voz
  */
 export function VoiceSystemPro() {
   // Estados del sistema
-  const [systemState, setSystemState] = useState('initializing'); // initializing, ready, error, disabled
-  const [conversationState, setConversationState] = useState('idle'); // idle, listening, processing, speaking
-  const [diagnostics, setDiagnostics] = useState({});
-  const [errorLog, setErrorLog] = useState([]);
+  const [systemState, setSystemState] = useState('initializing');
+  const [conversationState, setConversationState] = useState('idle');
   
   // Referencias
   const recognitionRef = useRef(null);
   const utteranceRef = useRef(null);
   const timeoutRef = useRef(null);
-  const diagnosticIntervalRef = useRef(null);
   
   // Stores
   const { receiveAttention, createMemory, strengthenFriendship } = useAvatarLifeStore();
@@ -31,84 +27,63 @@ export function VoiceSystemPro() {
   // Función de logging profesional
   const log = useCallback((level, message, data = {}) => {
     const timestamp = new Date().toISOString();
-    const logEntry = { timestamp, level, message, data };
-    
-    console.log(`[VoiceSystemPro] ${level.toUpperCase()}: ${message}`, data);
-    
-    if (level === 'error') {
-      setErrorLog(prev => [...prev.slice(-9), logEntry]); // Mantener últimos 10 errores
-    }
+    console.log(`💻 [VoiceSystemPro] ${level.toUpperCase()}: ${message}`, data);
   }, []);
 
-  // Diagnóstico completo del sistema
+  // Ejecutar diagnósticos del sistema
   const runDiagnostics = useCallback(async () => {
+    log('info', 'Running system diagnostics...');
+    
     const diagnostics = {
-      timestamp: new Date().toISOString(),
-      browser: {
-        userAgent: navigator.userAgent,
-        language: navigator.language,
-        onLine: navigator.onLine
-      },
-      webSocket: {
-        connected: isConnected,
-        url: import.meta.env.VITE_WS_URL || 'ws://localhost:3001'
-      },
       speechRecognition: {
         supported: 'webkitSpeechRecognition' in window,
-        available: false,
-        error: null
+        available: false
       },
       speechSynthesis: {
         supported: 'speechSynthesis' in window,
         voicesLoaded: false,
-        voicesCount: 0,
-        spanishVoices: 0,
-        error: null
+        voiceCount: 0
       },
-      mediaDevices: {
-        supported: 'mediaDevices' in navigator,
-        microphoneAccess: false,
-        error: null
+      webSocket: {
+        connected: isConnected,
+        status: isConnected ? 'connected' : 'disconnected'
+      },
+      microphone: {
+        permission: 'unknown',
+        available: false
       }
     };
 
-    // Test Speech Recognition
-    try {
-      if ('webkitSpeechRecognition' in window) {
-        const testRecognition = new webkitSpeechRecognition();
+    // Verificar reconocimiento de voz
+    if (diagnostics.speechRecognition.supported) {
+      try {
+        const recognition = new webkitSpeechRecognition();
         diagnostics.speechRecognition.available = true;
+      } catch (error) {
+        log('warn', 'Speech recognition not available', error);
       }
-    } catch (error) {
-      diagnostics.speechRecognition.error = error.message;
-      log('error', 'Speech Recognition test failed', error);
     }
 
-    // Test Speech Synthesis
-    try {
-      if ('speechSynthesis' in window) {
-        const voices = speechSynthesis.getVoices();
-        diagnostics.speechSynthesis.voicesLoaded = voices.length > 0;
-        diagnostics.speechSynthesis.voicesCount = voices.length;
-        diagnostics.speechSynthesis.spanishVoices = voices.filter(v => v.lang.includes('es')).length;
-      }
-    } catch (error) {
-      diagnostics.speechSynthesis.error = error.message;
-      log('error', 'Speech Synthesis test failed', error);
+    // Verificar síntesis de voz
+    if (diagnostics.speechSynthesis.supported) {
+      const voices = speechSynthesis.getVoices();
+      diagnostics.speechSynthesis.voiceCount = voices.length;
+      diagnostics.speechSynthesis.voicesLoaded = voices.length > 0;
     }
 
-    // Test Microphone Access
-    try {
-      if ('mediaDevices' in navigator) {
+    // Verificar micrófono
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        diagnostics.mediaDevices.microphoneAccess = true;
+        diagnostics.microphone.permission = 'granted';
+        diagnostics.microphone.available = true;
         stream.getTracks().forEach(track => track.stop());
+      } catch (error) {
+        diagnostics.microphone.permission = error.name === 'NotAllowedError' ? 'denied' : 'prompt';
       }
-    } catch (error) {
-      diagnostics.mediaDevices.error = error.message;
-      log('warn', 'Microphone access test failed', error);
     }
 
-    setDiagnostics(diagnostics);
+    log('info', 'Diagnostics completed', diagnostics);
     return diagnostics;
   }, [isConnected, log]);
 
@@ -150,29 +125,24 @@ export function VoiceSystemPro() {
   // Inicializar síntesis de voz
   const initializeSpeechSynthesis = useCallback(() => {
     return new Promise((resolve) => {
-      if (!('speechSynthesis' in window)) {
-        resolve(false);
-        return;
-      }
-
       const checkVoices = () => {
         const voices = speechSynthesis.getVoices();
         if (voices.length > 0) {
-          log('info', `Speech synthesis ready with ${voices.length} voices`);
+          log('info', `Found ${voices.length} voices available`);
+          const spanishVoices = voices.filter(v => v.lang.includes('es'));
+          log('info', `Found ${spanishVoices.length} Spanish voices`);
           resolve(true);
-        } else {
-          log('warn', 'No voices available yet, waiting...');
         }
       };
 
-      // Verificar voces inmediatamente
       checkVoices();
-
-      // Escuchar evento de carga de voces
-      speechSynthesis.onvoiceschanged = () => {
-        checkVoices();
-        speechSynthesis.onvoiceschanged = null;
-      };
+      
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = () => {
+          checkVoices();
+          speechSynthesis.onvoiceschanged = null;
+        };
+      }
 
       // Timeout de seguridad
       setTimeout(() => {
@@ -194,7 +164,7 @@ export function VoiceSystemPro() {
 
     const recognition = new webkitSpeechRecognition();
     recognition.continuous = false;
-    recognition.interimResults = true;
+    recognition.interimResults = false;
     recognition.lang = 'es-ES';
     recognition.maxAlternatives = 1;
 
@@ -205,20 +175,16 @@ export function VoiceSystemPro() {
 
     recognition.onresult = (event) => {
       let finalTranscript = '';
-      let interimTranscript = '';
-
+      
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
+          finalTranscript += event.results[i][0].transcript;
         }
       }
 
-      if (finalTranscript) {
-        log('info', 'Final transcript received', { transcript: finalTranscript });
-        handleUserSpeech(finalTranscript);
+      if (finalTranscript.trim()) {
+        log('info', 'Transcript received', { transcript: finalTranscript });
+        handleUserSpeech(finalTranscript.trim());
       }
     };
 
@@ -226,13 +192,8 @@ export function VoiceSystemPro() {
       log('error', 'Speech recognition error', { error: event.error });
       setConversationState('idle');
       
-      // Auto-retry en ciertos errores
-      if (event.error === 'network' || event.error === 'audio-capture') {
-        setTimeout(() => {
-          if (conversationState === 'listening') {
-            startListening();
-          }
-        }, 2000);
+      if (event.error === 'not-allowed') {
+        alert('🎤 Necesito permisos de micrófono para funcionar. Por favor, permite el acceso y recarga la página.');
       }
     };
 
@@ -248,7 +209,7 @@ export function VoiceSystemPro() {
 
   // Manejar entrada de voz del usuario
   const handleUserSpeech = useCallback(async (transcript) => {
-    if (!transcript || transcript.trim().length < 2) {
+    if (!transcript || transcript.length < 2) {
       log('warn', 'Transcript too short, ignoring');
       return;
     }
@@ -257,7 +218,6 @@ export function VoiceSystemPro() {
     setConversationState('processing');
 
     try {
-      // Agregar mensaje del usuario
       const userMessage = {
         role: 'user',
         content: transcript.trim(),
@@ -325,57 +285,176 @@ export function VoiceSystemPro() {
     }
   }, [isConnected, send, addMessage, receiveAttention, strengthenFriendship, conversationState, log]);
 
-  // Síntesis de voz para respuestas del bot
-  const speakBotResponse = useCallback((text) => {
+  // Seleccionar la mejor voz española disponible (Desktop)
+  const getBestDesktopSpanishVoice = useCallback(() => {
+    const voices = speechSynthesis.getVoices();
+    
+    // Prioridad de voces para desktop (mejor calidad)
+    const voicePriority = [
+      // Voces premium y de alta calidad
+      (v) => v.lang.includes('es-ES') && (v.name.includes('Premium') || v.name.includes('Enhanced')),
+      (v) => v.lang.includes('es-MX') && (v.name.includes('Premium') || v.name.includes('Enhanced')),
+      
+      // Voces nativas del sistema (mejor calidad en desktop)
+      (v) => v.lang.includes('es-ES') && v.localService,
+      (v) => v.lang.includes('es-MX') && v.localService,
+      (v) => v.lang.includes('es-AR') && v.localService,
+      
+      // Voces específicas de alta calidad conocidas
+      (v) => v.name.includes('Monica') || v.name.includes('Mónica'), // Voz española femenina
+      (v) => v.name.includes('Jorge'), // Voz española masculina
+      (v) => v.name.includes('Paulina'), // Voz mexicana femenina
+      (v) => v.name.includes('Carlos'), // Voz mexicana masculina
+      (v) => v.name.includes('Esperanza'), // Voz latina
+      
+      // Google voces (buena calidad en desktop)
+      (v) => v.lang.includes('es-ES') && v.name.includes('Google'),
+      (v) => v.lang.includes('es-MX') && v.name.includes('Google'),
+      
+      // Cualquier voz española disponible
+      (v) => v.lang.includes('es-ES'),
+      (v) => v.lang.includes('es-MX'),
+      (v) => v.lang.includes('es-AR'),
+      (v) => v.lang.includes('es')
+    ];
+
+    for (const matcher of voicePriority) {
+      const voice = voices.find(matcher);
+      if (voice) {
+        log('info', `Selected desktop voice: ${voice.name} (${voice.lang})`, {
+          localService: voice.localService,
+          default: voice.default,
+          voiceURI: voice.voiceURI
+        });
+        return voice;
+      }
+    }
+
+    log('warn', 'No Spanish voice found for desktop, using default');
+    return null;
+  }, [log]);
+
+  // Dividir texto en chunks inteligentes para desktop
+  const splitTextIntoSentences = useCallback((text, maxLength = 180) => {
+    // Dividir por oraciones completas para mejor fluidez
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const chunks = [];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+      const trimmedSentence = sentence.trim();
+      
+      if ((currentChunk + ' ' + trimmedSentence).length <= maxLength) {
+        currentChunk += (currentChunk ? ' ' : '') + trimmedSentence;
+      } else {
+        if (currentChunk) {
+          chunks.push(currentChunk.trim());
+        }
+        currentChunk = trimmedSentence;
+      }
+    }
+
+    if (currentChunk) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks.length > 0 ? chunks : [text];
+  }, []);
+
+  // Síntesis de voz mejorada para desktop con chunks y mejor calidad
+  const speakResponse = useCallback((text) => {
     if (!text || !('speechSynthesis' in window)) {
       log('warn', 'Cannot speak: no text or synthesis not supported');
       return;
     }
 
-    log('info', 'Speaking bot response', { text: text.substring(0, 50) + '...' });
+    log('info', 'Speaking desktop response', { 
+      textLength: text.length,
+      preview: text.substring(0, 60) + '...' 
+    });
+    
     setConversationState('speaking');
 
-    // Cancelar speech anterior
+    // Cancelar speech anterior completamente
     speechSynthesis.cancel();
+    
+    // Esperar un momento para asegurar cancelación
+    setTimeout(() => {
+      // Dividir texto en chunks para evitar cortes
+      const chunks = splitTextIntoSentences(text, 160);
+      log('info', `Desktop text split into ${chunks.length} chunks`);
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-ES';
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 0.9;
+      let currentChunkIndex = 0;
+      let isCompleted = false;
 
-    // Seleccionar mejor voz disponible
-    const voices = speechSynthesis.getVoices();
-    const spanishVoice = voices.find(voice => 
-      voice.lang.includes('es-ES') || 
-      voice.lang.includes('es-MX') || 
-      voice.lang.includes('es')
-    );
+      const speakChunk = () => {
+        if (isCompleted || currentChunkIndex >= chunks.length) {
+          if (!isCompleted) {
+            log('info', 'All desktop chunks spoken successfully');
+            setConversationState('idle');
+            utteranceRef.current = null;
+            isCompleted = true;
+          }
+          return;
+        }
 
-    if (spanishVoice) {
-      utterance.voice = spanishVoice;
-      log('info', 'Using Spanish voice', { voice: spanishVoice.name });
-    }
+        const chunk = chunks[currentChunkIndex];
+        const utterance = new SpeechSynthesisUtterance(chunk);
+        
+        // Configuración optimizada para desktop (más natural)
+        utterance.lang = 'es-ES';
+        utterance.rate = 1.0; // Velocidad natural para desktop
+        utterance.pitch = 1.05; // Pitch ligeramente más natural
+        utterance.volume = 0.95; // Volumen óptimo
 
-    utterance.onstart = () => {
-      log('info', 'Speech synthesis started');
-    };
+        // Usar la mejor voz disponible
+        const bestVoice = getBestDesktopSpanishVoice();
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+        }
 
-    utterance.onend = () => {
-      log('info', 'Speech synthesis completed');
-      setConversationState('idle');
-      utteranceRef.current = null;
-    };
+        utterance.onstart = () => {
+          log('info', `Speaking desktop chunk ${currentChunkIndex + 1}/${chunks.length}`, {
+            chunkText: chunk.substring(0, 30) + '...'
+          });
+        };
 
-    utterance.onerror = (error) => {
-      log('error', 'Speech synthesis error', error);
-      setConversationState('idle');
-      utteranceRef.current = null;
-    };
+        utterance.onend = () => {
+          if (!isCompleted) {
+            currentChunkIndex++;
+            // Pausa muy breve entre chunks para naturalidad
+            setTimeout(speakChunk, 50);
+          }
+        };
 
-    utteranceRef.current = utterance;
-    speechSynthesis.speak(utterance);
-  }, [log]);
+        utterance.onerror = (error) => {
+          log('error', 'Desktop speech synthesis error', { 
+            error: error.error,
+            chunk: currentChunkIndex,
+            chunkText: chunk.substring(0, 30) + '...'
+          });
+          
+          // Intentar continuar con el siguiente chunk
+          if (!isCompleted) {
+            currentChunkIndex++;
+            if (currentChunkIndex < chunks.length) {
+              setTimeout(speakChunk, 100);
+            } else {
+              setConversationState('idle');
+              utteranceRef.current = null;
+              isCompleted = true;
+            }
+          }
+        };
+
+        utteranceRef.current = utterance;
+        speechSynthesis.speak(utterance);
+      };
+
+      // Iniciar la reproducción del primer chunk
+      speakChunk();
+    }, 100);
+  }, [log, getBestDesktopSpanishVoice, splitTextIntoSentences]);
 
   // Iniciar escucha
   const startListening = useCallback(async () => {
@@ -432,24 +511,18 @@ export function VoiceSystemPro() {
         conversationState === 'processing') {
       
       clearTimeout(timeoutRef.current);
-      speakBotResponse(lastMessage.content);
+      speakResponse(lastMessage.content);
     }
-  }, [messages, conversationState, speakBotResponse]);
+  }, [messages, conversationState, speakResponse]);
 
   // Inicialización del sistema
   useEffect(() => {
     initializeSystem();
     
-    // Diagnósticos periódicos
-    diagnosticIntervalRef.current = setInterval(runDiagnostics, 30000);
-    
     return () => {
       stopConversation();
-      if (diagnosticIntervalRef.current) {
-        clearInterval(diagnosticIntervalRef.current);
-      }
     };
-  }, [initializeSystem, runDiagnostics, stopConversation]);
+  }, [initializeSystem, stopConversation]);
 
   // Obtener estado visual
   const getVisualState = () => {
@@ -486,11 +559,11 @@ export function VoiceSystemPro() {
     switch (conversationState) {
       case 'listening':
         return {
-          color: 'from-blue-500 to-cyan-500',
+          color: 'from-green-500 to-emerald-500',
           pulse: true,
           icon: Mic,
-          message: 'Te escucho...',
-          bgColor: 'bg-blue-500'
+          message: 'Escuchando...',
+          bgColor: 'bg-green-500'
         };
       case 'processing':
         return {
@@ -502,18 +575,18 @@ export function VoiceSystemPro() {
         };
       case 'speaking':
         return {
-          color: 'from-green-500 to-emerald-500',
+          color: 'from-blue-500 to-indigo-500',
           pulse: false,
           icon: Volume2,
           message: 'Hablando...',
-          bgColor: 'bg-green-500'
+          bgColor: 'bg-blue-500'
         };
       default:
         return {
           color: 'from-indigo-600 to-purple-600',
           pulse: false,
           icon: Mic,
-          message: 'Toca para hablar',
+          message: 'Presiona para hablar',
           bgColor: 'bg-indigo-600'
         };
     }
@@ -523,17 +596,25 @@ export function VoiceSystemPro() {
   const isActive = conversationState !== 'idle';
   const canInteract = systemState === 'ready' && !isActive;
 
+  const handleButtonPress = () => {
+    if (canInteract) {
+      startListening();
+    } else if (isActive) {
+      stopConversation();
+    }
+  };
+
   return (
     <div className="fixed bottom-8 right-8 z-50">
       {/* Botón principal */}
       <motion.button
-        onClick={canInteract ? startListening : stopConversation}
-        disabled={systemState !== 'ready'}
+        onClick={handleButtonPress}
+        disabled={systemState === 'error'}
         className={`relative w-20 h-20 rounded-full bg-gradient-to-br ${currentState.color} 
           flex items-center justify-center shadow-2xl transition-all duration-300
-          ${systemState === 'ready' ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-75'}`}
-        whileHover={systemState === 'ready' ? { scale: 1.05 } : {}}
-        whileTap={systemState === 'ready' ? { scale: 0.95 } : {}}
+          ${systemState !== 'error' ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-75'}`}
+        whileHover={systemState !== 'error' ? { scale: 1.05 } : {}}
+        whileTap={systemState !== 'error' ? { scale: 0.95 } : {}}
         animate={{
           boxShadow: currentState.pulse 
             ? [
@@ -552,7 +633,7 @@ export function VoiceSystemPro() {
         }}
       >
         <currentState.icon size={28} className="text-white drop-shadow-lg" />
-        
+
         {/* Indicador de sistema listo */}
         <AnimatePresence>
           {systemState === 'ready' && !isActive && (
@@ -563,30 +644,6 @@ export function VoiceSystemPro() {
               className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
             >
               <CheckCircle size={14} className="text-white" />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Indicador de actividad */}
-        <AnimatePresence>
-          {isActive && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0 }}
-              className={`absolute -top-1 -right-1 w-6 h-6 ${currentState.bgColor} rounded-full flex items-center justify-center border-2 border-white`}
-            >
-              <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.8, 1, 0.8]
-                }}
-                transition={{
-                  duration: 1,
-                  repeat: Infinity
-                }}
-                className="w-2 h-2 bg-white rounded-full"
-              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -608,27 +665,6 @@ export function VoiceSystemPro() {
           {currentState.message}
         </div>
       </motion.div>
-
-      {/* Diagnósticos (solo en desarrollo) */}
-      {import.meta.env.DEV && diagnostics.timestamp && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="absolute bottom-32 right-0 bg-black/95 backdrop-blur-sm rounded-lg p-3 text-xs text-white border border-white/20 max-w-xs"
-        >
-          <div className="font-bold mb-2">System Status</div>
-          <div className="space-y-1">
-            <div>WS: {diagnostics.webSocket?.connected ? '✅' : '❌'}</div>
-            <div>Mic: {diagnostics.mediaDevices?.microphoneAccess ? '✅' : '❌'}</div>
-            <div>Voices: {diagnostics.speechSynthesis?.voicesCount || 0} ({diagnostics.speechSynthesis?.spanishVoices || 0} ES)</div>
-            {errorLog.length > 0 && (
-              <div className="text-red-400 text-xs">
-                Last Error: {errorLog[errorLog.length - 1]?.message}
-              </div>
-            )}
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }
