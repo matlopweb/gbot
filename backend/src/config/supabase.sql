@@ -110,6 +110,7 @@ CREATE TRIGGER update_user_preferences_updated_at
 ALTER TABLE user_contexts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saved_items ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de seguridad (ajustar según tus necesidades)
 -- Por ahora, permitir todo desde el service role
@@ -120,6 +121,8 @@ CREATE POLICY "Enable all for service role" ON conversations
   FOR ALL USING (true);
 
 CREATE POLICY "Enable all for service role" ON user_preferences
+  FOR ALL USING (true);
+CREATE POLICY "Enable all for service role" ON saved_items
   FOR ALL USING (true);
 
 -- Comentarios para documentación
