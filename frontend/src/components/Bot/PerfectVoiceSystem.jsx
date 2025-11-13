@@ -364,14 +364,56 @@ export function PerfectVoiceSystem() {
     const initializeSystem = async () => {
       console.log('🚀 Initializing perfect voice system...');
       
-      const recognitionReady = initializeVoiceRecognition();
-      const synthesisReady = initializeVoiceSynthesis();
-      
-      if (recognitionReady && synthesisReady) {
-        setIsSystemReady(true);
-        console.log('✅ Perfect voice system ready');
-      } else {
-        console.error('❌ Voice system initialization failed');
+      try {
+        // Verificar soporte del navegador
+        if (!('webkitSpeechRecognition' in window)) {
+          console.error('❌ Speech recognition not supported');
+          setIsSystemReady(false);
+          return;
+        }
+
+        if (!('speechSynthesis' in window)) {
+          console.error('❌ Speech synthesis not supported');
+          setIsSystemReady(false);
+          return;
+        }
+
+        // Inicializar reconocimiento
+        const recognitionReady = initializeVoiceRecognition();
+        
+        // Inicializar síntesis con retry
+        let synthesisReady = false;
+        let attempts = 0;
+        const maxAttempts = 5;
+
+        const tryInitSynthesis = () => {
+          attempts++;
+          synthesisReady = initializeVoiceSynthesis();
+          
+          if (!synthesisReady && attempts < maxAttempts) {
+            console.log(`🔄 Synthesis init attempt ${attempts}/${maxAttempts}`);
+            setTimeout(tryInitSynthesis, 1000);
+          } else if (synthesisReady || attempts >= maxAttempts) {
+            // Sistema listo o máximo de intentos alcanzado
+            setIsSystemReady(true);
+            console.log('✅ Perfect voice system ready');
+          }
+        };
+
+        tryInitSynthesis();
+
+        // Fallback más rápido: marcar como listo después de 3 segundos
+        setTimeout(() => {
+          if (!isSystemReady) {
+            console.log('⚠️ Force enabling system after timeout');
+            setIsSystemReady(true);
+          }
+        }, 3000);
+
+      } catch (error) {
+        console.error('❌ System initialization error:', error);
+        // Habilitar de todos modos para que el usuario pueda intentar
+        setTimeout(() => setIsSystemReady(true), 3000);
       }
     };
 
@@ -390,10 +432,29 @@ export function PerfectVoiceSystem() {
     };
   }, [initializeVoiceRecognition, initializeVoiceSynthesis]);
 
+  // Solicitar permisos de micrófono
+  const requestMicrophonePermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop()); // Detener el stream inmediatamente
+      return true;
+    } catch (error) {
+      console.error('❌ Microphone permission denied:', error);
+      return false;
+    }
+  };
+
   // Iniciar conversación
-  const startConversation = useCallback(() => {
+  const startConversation = useCallback(async () => {
     if (!isSystemReady) {
       console.error('❌ Voice system not ready');
+      return;
+    }
+
+    // Solicitar permisos si es necesario
+    const hasPermission = await requestMicrophonePermission();
+    if (!hasPermission) {
+      alert('🎤 Necesito permisos de micrófono para poder escucharte. Por favor, permite el acceso al micrófono y vuelve a intentar.');
       return;
     }
 
@@ -407,6 +468,16 @@ export function PerfectVoiceSystem() {
         console.log('🎤 Conversation started');
       } catch (error) {
         console.error('❌ Failed to start recognition:', error);
+        // Reintentar una vez
+        setTimeout(() => {
+          try {
+            recognitionRef.current.start();
+          } catch (retryError) {
+            console.error('❌ Retry failed:', retryError);
+            setConversationState('idle');
+            setConversationActive(false);
+          }
+        }, 1000);
       }
     }
   }, [isSystemReady]);
@@ -435,6 +506,16 @@ export function PerfectVoiceSystem() {
 
   // Obtener estado visual
   const getVisualState = () => {
+    if (!isSystemReady) {
+      return { 
+        color: 'from-yellow-500 to-orange-500', 
+        pulse: true, 
+        icon: Brain,
+        message: 'Inicializando sistema...',
+        glow: 'shadow-yellow-500/50'
+      };
+    }
+
     switch (conversationState) {
       case 'listening':
         return { 
@@ -462,11 +543,11 @@ export function PerfectVoiceSystem() {
         };
       default:
         return { 
-          color: 'from-gray-600 to-gray-700', 
+          color: 'from-indigo-600 to-purple-600', 
           pulse: false, 
           icon: conversationActive ? Mic : MicOff,
-          message: isSystemReady ? 'Toca para hablar' : 'Inicializando...',
-          glow: 'shadow-gray-500/30'
+          message: 'Toca para hablar',
+          glow: 'shadow-indigo-500/50'
         };
     }
   };
