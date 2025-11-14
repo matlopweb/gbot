@@ -13,6 +13,7 @@ import conversationsRoutes from './routes/conversations.js';
 import savedItemsRoutes from './routes/savedItems.js';
 import scenariosRoutes from './routes/scenarios.js';
 import debugRoutes from './routes/debug.js';
+import companionRoutes from './routes/companion.js';
 import { setupWebSocket } from './websocket/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger, withRequestLogger } from './utils/logger.js';
@@ -64,7 +65,7 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/spotify', spotifyRoutes);
@@ -72,6 +73,7 @@ app.use('/api/conversations', conversationsRoutes);
 app.use('/api/saved-items', savedItemsRoutes);
 app.use('/api/scenarios', scenariosRoutes);
 app.use('/api/debug', debugRoutes);
+app.use('/api/companion', companionRoutes);
 app.use('/metrics', metricsRouter);
 
 // WebSocket setup

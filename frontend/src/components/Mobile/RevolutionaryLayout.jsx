@@ -12,6 +12,7 @@ import { IntelligentWelcome } from '../Bot/IntelligentWelcome';
 import { SystemStatus } from '../Debug/SystemStatus';
 import { SystemMonitor } from '../Professional/SystemMonitor';
 import { InnerWorldVisualization } from '../CognitiveCompanion/InnerWorldVisualization';
+import { CompanionSetup } from '../CognitiveCompanion/CompanionSetup';
 
 export function RevolutionaryLayout() {
   const [showWelcome, setShowWelcome] = useState(true);
@@ -19,6 +20,8 @@ export function RevolutionaryLayout() {
   const [showInnerWorld, setShowInnerWorld] = useState(false);
   const [innerWorldData, setInnerWorldData] = useState(null);
   const [companionData, setCompanionData] = useState(null);
+  const [showCompanionSetup, setShowCompanionSetup] = useState(false);
+  const [companionSystemReady, setCompanionSystemReady] = useState(false);
   
   const { vitalStats, currentMood, friendship } = useAvatarLifeStore();
   const { isConnected } = useBotStore();
@@ -26,17 +29,48 @@ export function RevolutionaryLayout() {
   const toneTheme = useScenarioStore((state) => state.getToneTheme());
   const activeScenario = useScenarioStore((state) => state.activeScenario);
 
+  // Verificar estado del compañero cognitivo
+  useEffect(() => {
+    checkCompanionSystem();
+  }, []);
+
   // Ocultar bienvenida después de unos segundos
   useEffect(() => {
     const welcomeTimer = setTimeout(() => {
       setShowWelcome(false);
       setIsReady(true);
-    }, 3000);
+    }, 5000);
 
     return () => clearTimeout(welcomeTimer);
   }, []);
 
-  // El sistema de bienvenida inteligente maneja esto ahora
+  const checkCompanionSystem = async () => {
+    try {
+      const response = await fetch('/api/companion/status');
+      const data = await response.json();
+      
+      if (data.status === 'ready') {
+        setCompanionSystemReady(true);
+      } else if (data.setup_required) {
+        // Mostrar setup después de un delay para no interrumpir la bienvenida
+        setTimeout(() => {
+          setShowCompanionSetup(true);
+        }, 6000);
+      }
+    } catch (error) {
+      console.warn('Could not check companion system status:', error);
+    }
+  };
+
+  const handleCompanionSetupComplete = () => {
+    setShowCompanionSetup(false);
+    setCompanionSystemReady(true);
+    
+    // Mostrar mundo interior brevemente para demostrar la funcionalidad
+    setTimeout(() => {
+      setShowInnerWorld(true);
+    }, 1000);
+  };
 
   return (
     <div className={`h-screen bg-gradient-to-br ${toneTheme.gradient} flex flex-col relative overflow-hidden transition-colors duration-700`}>
@@ -253,6 +287,11 @@ export function RevolutionaryLayout() {
         isVisible={showInnerWorld}
         onToggle={() => setShowInnerWorld(false)}
       />
+
+      {/* Configuración del Compañero Cognitivo */}
+      {showCompanionSetup && (
+        <CompanionSetup onSetupComplete={handleCompanionSetupComplete} />
+      )}
     </div>
   );
 }
