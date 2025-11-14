@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "setup": "node scripts/setup.js",
+    "setup:companion": "node setup-companion.js",
     "install:all": "npm install && npm install --workspace=backend && npm install --workspace=frontend",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=backend",
