@@ -12,6 +12,19 @@ const router = express.Router();
  */
 
 /**
+ * GET /api/companion/test
+ * Ruta de prueba para verificar que el sistema funciona
+ */
+router.get('/test', (req, res) => {
+  res.json({
+    status: 'success',
+    message: 'Rutas del Compañero Cognitivo funcionando correctamente',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+/**
  * GET /api/companion/status
  * Verificar estado del sistema de compañero cognitivo
  */
@@ -19,18 +32,42 @@ router.get('/status', async (req, res) => {
   try {
     logger.info('🔍 Checking Cognitive Companion system status...');
 
+    // Verificar si Supabase está disponible
+    if (!supabase) {
+      return res.json({
+        status: 'supabase_not_configured',
+        message: 'Supabase no está configurado',
+        setup_required: true,
+        debug: {
+          supabase_url: !!process.env.SUPABASE_URL,
+          supabase_key: !!process.env.SUPABASE_ANON_KEY
+        }
+      });
+    }
+
     // Verificar conexión a base de datos
-    const { data: testConnection, error: connectionError } = await supabase
-      .from('companion_personalities')
-      .select('count(*)')
-      .limit(1);
+    let testConnection, connectionError;
+    try {
+      const result = await supabase
+        .from('companion_personalities')
+        .select('count(*)')
+        .limit(1);
+      testConnection = result.data;
+      connectionError = result.error;
+    } catch (err) {
+      connectionError = err;
+    }
 
     if (connectionError) {
       return res.json({
         status: 'database_not_configured',
         message: 'Base de datos no configurada para Compañero Cognitivo',
         error: connectionError.message,
-        setup_required: true
+        setup_required: true,
+        debug: {
+          error_code: connectionError.code,
+          error_details: connectionError.details
+        }
       });
     }
 

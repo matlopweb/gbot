@@ -88,4 +88,57 @@ router.post('/test-openai', async (req, res) => {
   }
 });
 
+/**
+ * Verificar rutas disponibles
+ */
+router.get('/routes', (req, res) => {
+  try {
+    const routes = [];
+    
+    // Obtener todas las rutas registradas
+    req.app._router.stack.forEach((middleware) => {
+      if (middleware.route) {
+        routes.push({
+          path: middleware.route.path,
+          methods: Object.keys(middleware.route.methods)
+        });
+      } else if (middleware.name === 'router') {
+        middleware.handle.stack.forEach((handler) => {
+          if (handler.route) {
+            routes.push({
+              path: handler.route.path,
+              methods: Object.keys(handler.route.methods)
+            });
+          }
+        });
+      }
+    });
+
+    res.json({
+      status: 'success',
+      message: 'Available routes',
+      routes: routes,
+      companion_routes_available: routes.some(r => r.path && r.path.includes('companion')),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error getting routes:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Ruta de prueba de conexión
+ */
+router.get('/ping', (req, res) => {
+  res.json({ 
+    message: 'pong', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 export default router;

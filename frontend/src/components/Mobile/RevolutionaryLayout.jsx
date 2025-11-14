@@ -46,19 +46,43 @@ export function RevolutionaryLayout() {
 
   const checkCompanionSystem = async () => {
     try {
+      // Primero probar la ruta de test
+      const testResponse = await fetch('/api/companion/test');
+      
+      if (!testResponse.ok) {
+        console.warn('Companion routes not available, using fallback mode');
+        setCompanionSystemReady(false);
+        return;
+      }
+      
+      // Si la ruta de test funciona, probar el status
       const response = await fetch('/api/companion/status');
+      
+      if (!response.ok) {
+        console.warn('Companion status endpoint not available');
+        setCompanionSystemReady(false);
+        return;
+      }
+      
       const data = await response.json();
       
       if (data.status === 'ready') {
         setCompanionSystemReady(true);
+        console.log('✅ Cognitive Companion system ready');
       } else if (data.setup_required) {
+        console.log('⚠️ Cognitive Companion setup required');
         // Mostrar setup después de un delay para no interrumpir la bienvenida
         setTimeout(() => {
           setShowCompanionSetup(true);
         }, 6000);
+      } else {
+        console.log('🔧 Cognitive Companion in partial state:', data.status);
+        setCompanionSystemReady(false);
       }
     } catch (error) {
-      console.warn('Could not check companion system status:', error);
+      console.warn('Could not check companion system status:', error.message);
+      // Modo fallback - el sistema funciona sin compañero cognitivo
+      setCompanionSystemReady(false);
     }
   };
 
