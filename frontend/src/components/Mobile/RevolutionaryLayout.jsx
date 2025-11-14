@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../store/authStore';
 import { useAvatarLifeStore } from '../../store/avatarLifeStore';
@@ -22,10 +22,12 @@ export function RevolutionaryLayout() {
   const [companionData, setCompanionData] = useState(null);
   const [showCompanionSetup, setShowCompanionSetup] = useState(false);
   const [companionSystemReady, setCompanionSystemReady] = useState(false);
+  const [companionLoading, setCompanionLoading] = useState(false);
+  const [companionError, setCompanionError] = useState(null);
   
   const { vitalStats, currentMood, friendship } = useAvatarLifeStore();
   const { isConnected } = useBotStore();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const toneTheme = useScenarioStore((state) => state.getToneTheme());
   const activeScenario = useScenarioStore((state) => state.activeScenario);
 
@@ -69,6 +71,7 @@ export function RevolutionaryLayout() {
       if (data.status === 'ready') {
         setCompanionSystemReady(true);
         console.log('✅ Cognitive Companion system ready');
+        setCompanionError(null);
       } else if (data.setup_required) {
         console.log('⚠️ Cognitive Companion setup required');
         // Mostrar setup después de un delay para no interrumpir la bienvenida
@@ -86,9 +89,59 @@ export function RevolutionaryLayout() {
     }
   };
 
+  const fetchCompanionData = useCallback(async () => {
+    if (!companionSystemReady || !user?.id) return;
+
+    try {
+      setCompanionLoading(true);
+      setCompanionError(null);
+
+      const response = await fetch(`/api/companion/${encodeURIComponent(user.id)}`);
+
+      if (response.status === 404) {
+        console.warn('Companion not found for user, showing setup wizard');
+        setShowCompanionSetup(true);
+        setCompanionData(null);
+        setInnerWorldData(null);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error('No se pudo obtener el estado del compañero');
+      }
+
+      const data = await response.json();
+      if (data.companion) {
+        setCompanionData({
+          personality: data.companion.personality,
+          emotional_state: data.companion.emotional_state,
+          relationship_depth: data.companion.relationship_depth,
+          memory_count: data.companion.memory_count
+        });
+        setInnerWorldData(data.companion.inner_world || null);
+      } else {
+        setCompanionData(null);
+        setInnerWorldData(null);
+      }
+    } catch (error) {
+      console.warn('Error loading companion data:', error);
+      setCompanionError(error.message);
+    } finally {
+      setCompanionLoading(false);
+    }
+  }, [companionSystemReady, user?.id]);
+
+  useEffect(() => {
+    if (!companionSystemReady) return;
+    fetchCompanionData();
+    const interval = setInterval(fetchCompanionData, 60_000);
+    return () => clearInterval(interval);
+  }, [companionSystemReady, fetchCompanionData]);
+
   const handleCompanionSetupComplete = () => {
     setShowCompanionSetup(false);
     setCompanionSystemReady(true);
+    fetchCompanionData();
     
     // Mostrar mundo interior brevemente para demostrar la funcionalidad
     setTimeout(() => {
