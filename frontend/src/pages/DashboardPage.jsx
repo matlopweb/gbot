@@ -8,6 +8,7 @@ import ChatInterface from '../components/Chat/ChatInterface';
 import VoiceControl from '../components/Voice/VoiceControl';
 import { ConversationHistory } from '../components/History/ConversationHistory';
 import { SavedItemsButton } from '../components/SavedItems/SavedItemsButton';
+import { KeyMomentsButton } from '../components/CognitiveCompanion/KeyMomentsButton';
 import { MobileLayout } from '../components/Mobile/MobileLayout';
 import { ServiceStatusPanel } from '../components/Settings/ServiceStatusPanel';
 import { ScenarioSwitcher } from '../components/Scenarios/ScenarioSwitcher';
@@ -15,12 +16,12 @@ import { useScenarioStore } from '../store/scenarioStore';
 import { LogOut, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { getProfileTheme } from '../utils/profileThemes';
 
 export default function DashboardPage() {
-  const { logout, token } = useAuthStore();
+  const { logout, token, profile, user } = useAuthStore();
   const { isConnected } = useWebSocket();
   const hydrateMessages = useBotStore(state => state.hydrateMessages);
-  const toneTheme = useScenarioStore((state) => state.getToneTheme());
   const activeScenario = useScenarioStore((state) => state.activeScenario);
   const [showSettings, setShowSettings] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -55,18 +56,22 @@ export default function DashboardPage() {
     window.location.href = '/';
   };
 
+  const profileTheme = getProfileTheme(profile?.color_theme);
+  const displayName = profile?.display_name || user?.name || 'Explorador';
+  const modeLabel = profile?.voice_style ? `Modo ${profile.voice_style}` : 'Tu asistente personal';
+
   if (isMobile) {
     return <MobileLayout />;
   }
 
   return (
-    <div className={`min-h-screen p-4 bg-gradient-to-br ${toneTheme.gradient} transition-colors duration-700`}>
+    <div className={`min-h-screen p-4 bg-gradient-to-br ${profileTheme.gradient} transition-colors duration-700`}>
       <div className="max-w-6xl mx-auto mb-6">
         <div className="flex justify-between items-center glass rounded-2xl p-4">
           <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-xl font-bold">GBot</h1>
-              <span className="text-sm text-white/60">Tu asistente personal</span>
+              <h1 className="text-xl font-bold">{`Hola, ${displayName}`}</h1>
+              <span className={`text-sm text-white/70 ${profileTheme.accent}`}>{modeLabel}</span>
             </div>
             <span
               className={`text-xs px-3 py-1 rounded-full border ${
@@ -133,6 +138,7 @@ export default function DashboardPage() {
 
       <ConversationHistory />
       <SavedItemsButton />
+      <KeyMomentsButton />
 
       <AnimatePresence>
         {showSettings && (

@@ -317,7 +317,7 @@ router.post('/:userId/create', async (req, res) => {
 router.get('/:userId/inner-world', async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     const { data, error } = await supabase
       .from('companion_inner_world')
       .select('*')
@@ -343,6 +343,178 @@ router.get('/:userId/inner-world', async (req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Error obteniendo mundo interior',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/companion/:userId/memories
+ * Listar recuerdos/momentos clave
+ */
+router.get('/:userId/memories', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Supabase no está configurado'
+      });
+    }
+
+    const { userId } = req.params;
+    const limit = Number(req.query.limit) || 20;
+
+    const { data, error } = await supabase
+      .from('companion_memories')
+      .select('*')
+      .eq('user_id', userId)
+      .order('timestamp', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    res.json({
+      status: 'success',
+      memories: data || []
+    });
+  } catch (error) {
+    logger.error('Error fetching companion memories:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error obteniendo recuerdos',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/companion/:userId/memories
+ * Crear un momento/recuerdo
+ */
+router.post('/:userId/memories', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Supabase no está configurado'
+      });
+    }
+
+    const { userId } = req.params;
+    const {
+      content,
+      type = 'moment',
+      tags = [],
+      importance_score = 60,
+      emotional_context = { mood: 'balanced' },
+      associations = []
+    } = req.body;
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El contenido es obligatorio'
+      });
+    }
+
+    const payload = {
+      user_id: userId,
+      content: content.trim(),
+      type,
+      tags,
+      emotional_context,
+      associations,
+      importance_score: Math.max(0, Math.min(100, importance_score)),
+      timestamp: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('companion_memories')
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      status: 'success',
+      memory: data
+    });
+  } catch (error) {
+    logger.error('Error creating companion memory:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error creando recuerdo',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/companion/:userId/voice-emotion
+ * Registrar señal emocional basada en voz
+ */
+router.post('/:userId/voice-emotion', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Supabase no está configurado'
+      });
+    }
+
+    const { userId } = req.params;
+    const {
+      transcript,
+      amplitude = 0,
+      speechSpeed = 0,
+      pitch = 0,
+      energyEstimate = 0
+    } = req.body;
+
+    const session_id = req.body.session_id || `session_${Date.now()}`;
+
+    const payload = {
+      user_id: userId,
+      session_id,
+      transcript: transcript || '',
+      detected_emotions: {
+        excitement: energyEstimate,
+        calmness: 100 - energyEstimate,
+        tension: Math.max(0, pitch - 60),
+        rhythm: speechSpeed
+      },
+      confidence_level: 0.6,
+      audio_features: {
+        amplitude,
+        speechSpeed,
+        pitch,
+        energy: energyEstimate
+      },
+      context_tags: ['voice', 'real_time']
+    };
+
+    await supabase.from('voice_emotion_analysis').insert([payload]);
+
+    // Actualizar memoria emocional en el companion
+    try {
+      const companion = new CognitiveCompanion(userId);
+      const initialized = await companion.initialize();
+      if (initialized) {
+        await companion.updateEmotionalState(payload.detected_emotions);
+      }
+    } catch (companionError) {
+      logger.warn('Failed to update companion with voice emotion:', companionError);
+    }
+
+    res.json({
+      status: 'success'
+    });
+  } catch (error) {
+    logger.error('Error recording voice emotion:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error registrando emoción de voz',
       error: error.message
     });
   }

@@ -1,11 +1,21 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import HomePage from './pages/HomePage';
 import AuthCallback from './pages/AuthCallback';
 import DashboardPage from './pages/DashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useAuthStore } from './store/authStore';
 
 function App() {
+  const { isAuthenticated, profile, loadProfile, token } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated && token && !profile) {
+      loadProfile();
+    }
+  }, [isAuthenticated, token, profile, loadProfile]);
+
   return (
     <Router>
       <div className="min-h-screen">

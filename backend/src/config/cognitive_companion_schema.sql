@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS companion_memories (
     user_id TEXT NOT NULL,
     content TEXT NOT NULL,
     emotional_context JSONB NOT NULL, -- Estado emocional cuando se creó
+    type TEXT DEFAULT 'moment',
+    tags TEXT[] DEFAULT ARRAY[]::text[],
     importance_score INTEGER NOT NULL CHECK (importance_score >= 0 AND importance_score <= 100),
     associations JSONB DEFAULT '[]', -- Conexiones con otras memorias
     recall_count INTEGER DEFAULT 0,

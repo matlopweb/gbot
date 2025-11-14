@@ -5,8 +5,9 @@ import toast from 'react-hot-toast';
 import { useScenarioStore, SCENARIO_TONES } from '../../store/scenarioStore';
 
 const toneOptions = Object.keys(SCENARIO_TONES);
+const SCENARIOS_ENABLED = import.meta.env.VITE_ENABLE_SCENARIOS === 'true';
 
-export function ScenarioSwitcher({ compact = false }) {
+function ScenarioSwitcherInner({ compact = false }) {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -237,4 +238,12 @@ export function ScenarioSwitcher({ compact = false }) {
       </AnimatePresence>
     </>
   );
+}
+
+export function ScenarioSwitcher(props) {
+  if (!SCENARIOS_ENABLED) {
+    return null;
+  }
+
+  return <ScenarioSwitcherInner {...props} />;
 }

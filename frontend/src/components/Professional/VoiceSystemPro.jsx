@@ -4,6 +4,9 @@ import { useAvatarLifeStore } from '../../store/avatarLifeStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useBotStore } from '../../store/botStore';
 import { Mic, MicOff, Volume2, Brain, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 /**
  * Sistema de Voz Profesional
@@ -18,11 +21,20 @@ export function VoiceSystemPro() {
   const recognitionRef = useRef(null);
   const utteranceRef = useRef(null);
   const timeoutRef = useRef(null);
+  const listeningStartRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioStreamRef = useRef(null);
+  const audioMetricsRef = useRef({
+    totalSize: 0,
+    chunkCount: 0,
+    maxChunkSize: 0
+  });
   
   // Stores
   const { receiveAttention, createMemory, strengthenFriendship } = useAvatarLifeStore();
   const { send, isConnected } = useWebSocket();
   const { addMessage, messages } = useBotStore();
+  const { user, token } = useAuthStore();
 
   // Función de logging profesional
   const log = useCallback((level, message, data = {}) => {
@@ -155,6 +167,148 @@ export function VoiceSystemPro() {
     });
   }, [log]);
 
+  // Reiniciar referencias de anal��tica de voz
+  const resetVoiceAnalytics = useCallback(() => {
+    listeningStartRef.current = null;
+    audioMetricsRef.current = {
+      totalSize: 0,
+      chunkCount: 0,
+      maxChunkSize: 0
+    };
+  }, []);
+
+  // Iniciar captura de audio para heur��sticas
+  const startAudioCapture = useCallback((stream) => {
+    try {
+      resetVoiceAnalytics();
+      audioStreamRef.current = stream;
+      listeningStartRef.current = (typeof performance !== 'undefined' && performance.now)
+        ? performance.now()
+        : Date.now();
+
+      if (!('MediaRecorder' in window)) {
+        log('warn', 'MediaRecorder not available, using duration-only heuristics');
+        return;
+      }
+
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.addEventListener('dataavailable', (event) => {
+        if (!event?.data) return;
+        const size = event.data.size || 0;
+        audioMetricsRef.current.totalSize += size;
+        audioMetricsRef.current.chunkCount += 1;
+        audioMetricsRef.current.maxChunkSize = Math.max(
+          audioMetricsRef.current.maxChunkSize,
+          size
+        );
+      });
+
+      recorder.addEventListener('error', (event) => {
+        log('warn', 'MediaRecorder error detected', { error: event.error });
+      });
+
+      recorder.start(250);
+      log('info', 'Voice analytics recorder started');
+    } catch (error) {
+      log('error', 'Failed to initialize audio capture', error);
+    }
+  }, [log, resetVoiceAnalytics]);
+
+  // Detener captura de audio activa
+  const stopAudioCapture = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder) {
+      try {
+        if (recorder.state !== 'inactive') {
+          recorder.stop();
+        }
+      } catch (error) {
+        log('warn', 'Error stopping MediaRecorder', error);
+      } finally {
+        recorder.ondataavailable = null;
+        mediaRecorderRef.current = null;
+      }
+    }
+
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      audioStreamRef.current = null;
+    }
+  }, [log]);
+
+  // Construir payload heur��stico de voz
+  const buildVoiceEmotionPayload = useCallback((transcript = '') => {
+    const now = (typeof performance !== 'undefined' && performance.now)
+      ? performance.now()
+      : Date.now();
+    const startedAt = listeningStartRef.current;
+    const durationMs = startedAt ? Math.max(now - startedAt, 0) : 0;
+    const cleanTranscript = transcript.trim();
+
+    const words = cleanTranscript ? cleanTranscript.split(/\s+/).filter(Boolean).length : 0;
+    const secondsSpoken = Math.max(durationMs / 1000, 1);
+    const wordsPerSecond = words / secondsSpoken;
+    const normalizedSpeed = Math.min(1, wordsPerSecond / 3);
+
+    const metrics = audioMetricsRef.current;
+    const averageChunk = metrics.chunkCount > 0 ? metrics.totalSize / metrics.chunkCount : 0;
+    const rawPower = metrics.maxChunkSize || averageChunk || 1200;
+    const amplitudeNormalized = Math.min(1, rawPower / 6000);
+
+    const amplitudeScore = Math.round(
+      Math.min(Math.max(amplitudeNormalized, 0.1), 1) * 100
+    );
+    const speechSpeedScore = Math.round(normalizedSpeed * 100);
+    const energyEstimate = Math.round(
+      Math.min(1, amplitudeNormalized * 0.6 + normalizedSpeed * 0.4) * 100
+    );
+    const pitchScore = Math.round(
+      Math.min(1, 0.4 + normalizedSpeed * 0.5 + amplitudeNormalized * 0.1) * 100
+    );
+
+    resetVoiceAnalytics();
+
+    return {
+      transcript: cleanTranscript,
+      amplitude: amplitudeScore,
+      speechSpeed: speechSpeedScore,
+      pitch: pitchScore,
+      energyEstimate
+    };
+  }, [resetVoiceAnalytics]);
+
+  // Enviar se��al emocional basada en voz al backend
+  const sendVoiceEmotionSignal = useCallback(async (payload) => {
+    if (!user?.id || !token) {
+      log('warn', 'Skipping voice emotion signal: missing auth context');
+      return null;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/companion/${user.id}/voice-emotion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Voice emotion request failed with status ${response.status}`);
+      }
+
+      const data = await response.json().catch(() => ({ status: 'success' }));
+      log('info', 'Voice emotion signal sent', { payload, response: data.status });
+      return data;
+    } catch (error) {
+      log('error', 'Failed to send voice emotion signal', error);
+      return null;
+    }
+  }, [log, token, user]);
+
   // Crear reconocimiento de voz
   const createSpeechRecognition = useCallback(() => {
     if (!('webkitSpeechRecognition' in window)) {
@@ -191,6 +345,8 @@ export function VoiceSystemPro() {
     recognition.onerror = (event) => {
       log('error', 'Speech recognition error', { error: event.error });
       setConversationState('idle');
+      stopAudioCapture();
+      resetVoiceAnalytics();
       
       if (event.error === 'not-allowed') {
         alert('🎤 Necesito permisos de micrófono para funcionar. Por favor, permite el acceso y recarga la página.');
@@ -199,13 +355,15 @@ export function VoiceSystemPro() {
 
     recognition.onend = () => {
       log('info', 'Speech recognition ended');
+      stopAudioCapture();
+      resetVoiceAnalytics();
       if (conversationState === 'listening') {
         setConversationState('idle');
       }
     };
 
     return recognition;
-  }, [conversationState, log]);
+  }, [conversationState, log, stopAudioCapture, resetVoiceAnalytics]);
 
   // Manejar entrada de voz del usuario
   const handleUserSpeech = useCallback(async (transcript) => {
@@ -218,6 +376,9 @@ export function VoiceSystemPro() {
     setConversationState('processing');
 
     try {
+      const voiceEmotionPayload = buildVoiceEmotionPayload(transcript);
+      stopAudioCapture();
+
       const userMessage = {
         role: 'user',
         content: transcript.trim(),
@@ -259,6 +420,8 @@ export function VoiceSystemPro() {
       receiveAttention('voice_conversation');
       strengthenFriendship('natural_conversation', 1.5);
 
+      await sendVoiceEmotionSignal(voiceEmotionPayload);
+
       // Timeout de seguridad
       timeoutRef.current = setTimeout(() => {
         if (conversationState === 'processing') {
@@ -283,7 +446,7 @@ export function VoiceSystemPro() {
       log('error', 'Failed to process user speech', error);
       setConversationState('idle');
     }
-  }, [isConnected, send, addMessage, receiveAttention, strengthenFriendship, conversationState, log]);
+  }, [isConnected, send, addMessage, receiveAttention, strengthenFriendship, conversationState, log, buildVoiceEmotionPayload, stopAudioCapture, sendVoiceEmotionSignal]);
 
   // Seleccionar la mejor voz española disponible (Desktop)
   const getBestDesktopSpanishVoice = useCallback(() => {
@@ -470,7 +633,8 @@ export function VoiceSystemPro() {
 
     try {
       // Solicitar permisos de micrófono
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      startAudioCapture(stream);
       
       // Crear y iniciar reconocimiento
       const recognition = createSpeechRecognition();
@@ -478,12 +642,17 @@ export function VoiceSystemPro() {
         recognitionRef.current = recognition;
         recognition.start();
         log('info', 'Started listening for user input');
+      } else {
+        stopAudioCapture();
+        resetVoiceAnalytics();
       }
     } catch (error) {
       log('error', 'Failed to start listening', error);
       alert('🎤 Necesito acceso al micrófono para escucharte. Por favor, permite el acceso y vuelve a intentar.');
+      stopAudioCapture();
+      resetVoiceAnalytics();
     }
-  }, [systemState, createSpeechRecognition, log, isConnected]);
+  }, [systemState, createSpeechRecognition, log, isConnected, startAudioCapture, stopAudioCapture, resetVoiceAnalytics]);
 
   // Detener conversación
   const stopConversation = useCallback(() => {
@@ -503,9 +672,10 @@ export function VoiceSystemPro() {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    
+    stopAudioCapture();
+    resetVoiceAnalytics();
     setConversationState('idle');
-  }, [log]);
+  }, [log, stopAudioCapture, resetVoiceAnalytics]);
 
   // Escuchar respuestas del bot
   useEffect(() => {

@@ -37,6 +37,23 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 -- Índice para preferencias
 CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
 
+-- Perfil persistente del usuario (identidad y estilo)
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id TEXT NOT NULL UNIQUE,
+  display_name TEXT,
+  avatar_style TEXT DEFAULT 'classic',
+  color_theme TEXT DEFAULT 'aqua',
+  voice_style TEXT DEFAULT 'warm',
+  speech_rate REAL DEFAULT 1.0,
+  favorite_quote TEXT,
+  preferences JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
+
 -- Tabla de tokens de servicios (Google, Spotify, etc.)
 CREATE TABLE IF NOT EXISTS user_tokens (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -125,6 +142,11 @@ CREATE TRIGGER update_user_preferences_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_user_profiles_updated_at
+  BEFORE UPDATE ON user_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_user_scenarios_updated_at
   BEFORE UPDATE ON user_scenarios
   FOR EACH ROW
@@ -199,6 +221,8 @@ CREATE TABLE IF NOT EXISTS companion_memories (
     user_id TEXT NOT NULL,
     content TEXT NOT NULL,
     emotional_context JSONB NOT NULL, -- Estado emocional cuando se creó
+    type TEXT DEFAULT 'moment',
+    tags TEXT[] DEFAULT ARRAY[]::text[],
     importance_score INTEGER NOT NULL CHECK (importance_score >= 0 AND importance_score <= 100),
     associations JSONB DEFAULT '[]', -- Conexiones con otras memorias
     recall_count INTEGER DEFAULT 0,

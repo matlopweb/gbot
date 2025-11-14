@@ -11,6 +11,7 @@ import tasksRoutes from './routes/tasks.js';
 import spotifyRoutes from './routes/spotify.js';
 import conversationsRoutes from './routes/conversations.js';
 import savedItemsRoutes from './routes/savedItems.js';
+import profileRoutes from './routes/profile.js';
 import scenariosRoutes from './routes/scenarios.js';
 import debugRoutes from './routes/debug.js';
 import companionRoutes from './routes/companion.js';
@@ -71,6 +72,7 @@ app.use('/api/tasks', tasksRoutes);
 app.use('/api/spotify', spotifyRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/saved-items', savedItemsRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api/scenarios', scenariosRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/companion', companionRoutes);
@@ -104,4 +106,3 @@ process.on('SIGTERM', () => {
 });
 
 export default app;
-

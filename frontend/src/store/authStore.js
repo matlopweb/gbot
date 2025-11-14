@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { fetchProfile } from '../services/profileApi';
 
 export const useAuthStore = create(
   persist(
@@ -7,12 +8,36 @@ export const useAuthStore = create(
       token: null,
       user: null,
       isAuthenticated: false,
+      profile: null,
 
-      setAuth: (token, user) => set({ token, user, isAuthenticated: true }),
+      setAuth: (token, user = {}) => set({
+        token,
+        user: {
+          id: user.id || null,
+          name: user.name || null,
+          email: user.email || null
+        },
+        isAuthenticated: true
+      }),
 
-      logout: () => set({ token: null, user: null, isAuthenticated: false }),
+      setProfile: (profile) => set({ profile }),
+
+      logout: () => set({ token: null, user: null, profile: null, isAuthenticated: false }),
 
       getToken: () => get().token,
+
+      loadProfile: async () => {
+        try {
+          const token = get().token;
+          if (!token) return null;
+          const profile = await fetchProfile(token);
+          set({ profile });
+          return profile;
+        } catch (error) {
+          console.error('Error loading profile:', error);
+          return null;
+        }
+      },
 
       checkAuth: () => {
         const token = get().token;
@@ -43,6 +68,7 @@ export const useAuthStore = create(
       partialize: (state) => ({
         token: state.token,
         user: state.user,
+        profile: state.profile,
         isAuthenticated: state.isAuthenticated
       })
     }

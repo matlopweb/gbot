@@ -74,7 +74,14 @@ router.get('/google/callback', async (req, res) => {
     logger.info(`User authenticated: ${userId} (${userInfo.email})`);
 
     // Redirigir al frontend con el token
-    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback?token=${jwtToken}`;
+    const params = new URLSearchParams({
+      token: jwtToken,
+      userId,
+      userName: userInfo.name || '',
+      userEmail: userInfo.email || ''
+    });
+
+    const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback?${params.toString()}`;
     res.redirect(redirectUrl);
 
   } catch (error) {

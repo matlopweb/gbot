@@ -13,6 +13,7 @@ import { SystemStatus } from '../Debug/SystemStatus';
 import { SystemMonitor } from '../Professional/SystemMonitor';
 import { InnerWorldVisualization } from '../CognitiveCompanion/InnerWorldVisualization';
 import { CompanionSetup } from '../CognitiveCompanion/CompanionSetup';
+import { getProfileTheme } from '../../utils/profileThemes';
 
 export function RevolutionaryLayout() {
   const [showWelcome, setShowWelcome] = useState(true);
@@ -27,7 +28,7 @@ export function RevolutionaryLayout() {
   
   const { vitalStats, currentMood, friendship } = useAvatarLifeStore();
   const { isConnected } = useBotStore();
-  const { logout, user } = useAuthStore();
+  const { logout, user, profile } = useAuthStore();
   const toneTheme = useScenarioStore((state) => state.getToneTheme());
   const activeScenario = useScenarioStore((state) => state.activeScenario);
 
@@ -89,7 +90,28 @@ export function RevolutionaryLayout() {
     }
   };
 
-  const fetchCompanionData = useCallback(async () => {
+  const createCompanionForUser = useCallback(async () => {
+    if (!user?.id) return false;
+
+    try {
+      const response = await fetch(`/api/companion/${encodeURIComponent(user.id)}/create`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        throw new Error('No se pudo crear el compañero cognitivo');
+      }
+
+      setCompanionError(null);
+      return true;
+    } catch (error) {
+      console.warn('Error creating companion:', error);
+      setCompanionError(error.message);
+      return false;
+    }
+  }, [user?.id]);
+
+  const fetchCompanionData = useCallback(async ({ allowCreate = true } = {}) => {
     if (!companionSystemReady || !user?.id) return;
 
     try {
@@ -99,7 +121,13 @@ export function RevolutionaryLayout() {
       const response = await fetch(`/api/companion/${encodeURIComponent(user.id)}`);
 
       if (response.status === 404) {
-        console.warn('Companion not found for user, showing setup wizard');
+        console.warn('Companion not found for user, attempting creation');
+        if (allowCreate) {
+          const created = await createCompanionForUser();
+          if (created) {
+            return fetchCompanionData({ allowCreate: false });
+          }
+        }
         setShowCompanionSetup(true);
         setCompanionData(null);
         setInnerWorldData(null);
@@ -129,7 +157,7 @@ export function RevolutionaryLayout() {
     } finally {
       setCompanionLoading(false);
     }
-  }, [companionSystemReady, user?.id]);
+  }, [companionSystemReady, user?.id, createCompanionForUser]);
 
   useEffect(() => {
     if (!companionSystemReady) return;
@@ -149,8 +177,13 @@ export function RevolutionaryLayout() {
     }, 1000);
   };
 
+  const profileTheme = getProfileTheme(profile?.color_theme);
+  const backgroundGradient = activeScenario ? toneTheme.gradient : profileTheme.gradient;
+  const displayName = profile?.display_name || user?.name || 'Explorador';
+  const modeLabel = profile?.voice_style ? `Modo ${profile.voice_style}` : 'Modo clásico';
+
   return (
-    <div className={`h-screen bg-gradient-to-br ${toneTheme.gradient} flex flex-col relative overflow-hidden transition-colors duration-700`}>
+    <div className={`h-screen bg-gradient-to-br ${backgroundGradient} flex flex-col relative overflow-hidden transition-colors duration-700`}>
       
       {/* Efectos de fondo sutiles */}
       <div className="absolute inset-0">
@@ -179,6 +212,11 @@ export function RevolutionaryLayout() {
             delay: 2
           }}
         />
+      </div>
+
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 text-center text-white/80 z-10">
+        <p className="font-semibold tracking-tight">Hola, {displayName}</p>
+        <span className="text-xs uppercase tracking-widest">{modeLabel}</span>
       </div>
 
       {/* Header minimalista (solo salir) */}
@@ -348,14 +386,37 @@ export function RevolutionaryLayout() {
       <NaturalConversationFlow />
 
       {/* Botón Mundo Interior */}
-      <motion.button
-        onClick={() => setShowInnerWorld(!showInnerWorld)}
-        className="fixed top-4 left-4 z-40 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        🧠
-      </motion.button>
+      <div className="fixed top-4 left-4 z-40 flex flex-col gap-2">
+        <motion.button
+          onClick={() => setShowInnerWorld(!showInnerWorld)}
+          className="relative bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          🧠
+          {companionLoading && (
+            <span className="absolute -bottom-1 -right-1 w-5 h-5 text-xs rounded-full bg-blue-500 border border-white flex items-center justify-center animate-spin">
+              ⏳
+            </span>
+          )}
+          {companionError && !companionLoading && (
+            <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-red-500 border border-white flex items-center justify-center text-xs">
+              !
+            </span>
+          )}
+        </motion.button>
+
+        {companionError && (
+          <motion.button
+            onClick={() => fetchCompanionData({ allowCreate: false })}
+            className="bg-red-600/80 text-white text-xs px-3 py-1 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Reconectar compañero
+          </motion.button>
+        )}
+      </div>
 
       {/* Mundo Interior */}
       <InnerWorldVisualization

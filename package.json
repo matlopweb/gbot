@@ -1,6 +1,7 @@
 {
   "name": "gbot",
   "version": "1.0.0",
+  "type": "module",
   "description": "Asistente personal con IA, voz y animaciones",
   "private": true,
   "workspaces": [

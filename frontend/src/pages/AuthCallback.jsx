@@ -9,18 +9,27 @@ import toast from 'react-hot-toast';
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
+  const { setAuth, loadProfile } = useAuthStore();
   const hydrateMessages = useBotStore(state => state.hydrateMessages);
 
   useEffect(() => {
     const token = searchParams.get('token');
+    const userId = searchParams.get('userId');
+    const userName = searchParams.get('userName');
+    const userEmail = searchParams.get('userEmail');
     const authError = searchParams.get('error');
 
     if (token) {
-      setAuth(token, {});
+      setAuth(token, {
+        id: userId || null,
+        name: userName || null,
+        email: userEmail || null
+      });
       fetchConversations(token)
         .then((messages) => hydrateMessages(messages))
         .catch((error) => console.error('Error loading conversations:', error));
+
+      loadProfile();
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -30,7 +39,7 @@ export default function AuthCallback() {
     }
 
     navigate('/', { replace: true });
-  }, [searchParams, setAuth, navigate]);
+  }, [searchParams, setAuth, loadProfile, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

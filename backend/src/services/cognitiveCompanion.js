@@ -233,6 +233,31 @@ export class CognitiveCompanion {
       relationship_depth: this.calculateRelationshipDepth(),
       last_updated: new Date().toISOString()
     };
+
+    await this.persistInnerWorldState();
+  }
+
+  async persistInnerWorldState() {
+    if (!this.innerWorld) return;
+
+    try {
+      await supabase
+        .from('companion_inner_world')
+        .insert([{
+          user_id: this.userId,
+          current_thoughts: this.innerWorld.current_thoughts,
+          processing_queue: this.innerWorld.processing_queue,
+          emotional_state: this.innerWorld.emotional_state,
+          energy_visualization: this.innerWorld.energy_visualization,
+          focus_areas: this.innerWorld.focus_areas,
+          inspiration_level: this.innerWorld.inspiration_level,
+          curiosity_targets: this.innerWorld.curiosity_targets,
+          relationship_depth: this.innerWorld.relationship_depth,
+          last_updated: this.innerWorld.last_updated || new Date().toISOString()
+        }]);
+    } catch (error) {
+      logger.warn('Failed to persist inner world:', error.message);
+    }
   }
 
   /**
@@ -363,6 +388,14 @@ export class CognitiveCompanion {
         ...this.emotionalState,
         timestamp: new Date().toISOString()
       }]);
+
+    if (this.innerWorld) {
+      this.innerWorld.emotional_state = this.emotionalState.current_mood;
+      this.innerWorld.energy_visualization = this.emotionalState.energy_level;
+      this.innerWorld.relationship_depth = this.calculateRelationshipDepth();
+      this.innerWorld.last_updated = new Date().toISOString();
+      await this.persistInnerWorldState();
+    }
   }
 
   /**
