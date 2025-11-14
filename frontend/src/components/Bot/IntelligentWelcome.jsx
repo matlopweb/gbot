@@ -2,7 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { useAvatarLifeStore } from '../../store/avatarLifeStore';
 import { useBotStore } from '../../store/botStore';
 
+const AUTO_WELCOME_ENABLED = import.meta.env.VITE_ENABLE_AUTO_WELCOME === 'true';
+
 export function IntelligentWelcome() {
+  if (!AUTO_WELCOME_ENABLED) {
+    return null;
+  }
+
   const { friendship, vitalStats } = useAvatarLifeStore();
   const { addMessage } = useBotStore();
   const hasWelcomedRef = useRef(false);

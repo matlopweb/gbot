@@ -458,6 +458,11 @@ export function VoiceSystemPro() {
 
   // Iniciar escucha
   const startListening = useCallback(async () => {
+    if (!isConnected) {
+      log('warn', 'Cannot start listening: WebSocket is not connected yet');
+      return;
+    }
+
     if (systemState !== 'ready') {
       log('warn', 'Cannot start listening: system not ready');
       return;
@@ -478,7 +483,7 @@ export function VoiceSystemPro() {
       log('error', 'Failed to start listening', error);
       alert('🎤 Necesito acceso al micrófono para escucharte. Por favor, permite el acceso y vuelve a intentar.');
     }
-  }, [systemState, createSpeechRecognition, log]);
+  }, [systemState, createSpeechRecognition, log, isConnected]);
 
   // Detener conversación
   const stopConversation = useCallback(() => {
@@ -556,6 +561,16 @@ export function VoiceSystemPro() {
       };
     }
 
+    if (!isConnected) {
+      return {
+        color: 'from-indigo-500 to-indigo-700',
+        pulse: true,
+        icon: Loader,
+        message: 'Conectando con GBot...',
+        bgColor: 'bg-indigo-500'
+      };
+    }
+
     switch (conversationState) {
       case 'listening':
         return {
@@ -594,7 +609,7 @@ export function VoiceSystemPro() {
 
   const currentState = getVisualState();
   const isActive = conversationState !== 'idle';
-  const canInteract = systemState === 'ready' && !isActive;
+  const canInteract = systemState === 'ready' && !isActive && isConnected;
 
   const handleButtonPress = () => {
     if (canInteract) {
@@ -609,12 +624,12 @@ export function VoiceSystemPro() {
       {/* Botón principal */}
       <motion.button
         onClick={handleButtonPress}
-        disabled={systemState === 'error'}
+        disabled={systemState === 'error' || !isConnected}
         className={`relative w-20 h-20 rounded-full bg-gradient-to-br ${currentState.color} 
           flex items-center justify-center shadow-2xl transition-all duration-300
-          ${systemState !== 'error' ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-75'}`}
-        whileHover={systemState !== 'error' ? { scale: 1.05 } : {}}
-        whileTap={systemState !== 'error' ? { scale: 0.95 } : {}}
+          ${systemState !== 'error' && isConnected ? 'hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-75'}`}
+        whileHover={systemState !== 'error' && isConnected ? { scale: 1.05 } : {}}
+        whileTap={systemState !== 'error' && isConnected ? { scale: 0.95 } : {}}
         animate={{
           boxShadow: currentState.pulse 
             ? [
